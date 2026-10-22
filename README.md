@@ -9,6 +9,7 @@
 <p align="center">
   <a href="https://threadmark-sepia.vercel.app/">Explore the demo</a> ·
   <a href="#how-it-works">How it works</a> ·
+  <a href="#behind-the-brief">Behind the brief</a> ·
   <a href="#built-with">Built with</a> ·
   <a href="docs/DEPLOYMENT.md">Deployment guide</a>
 </p>
@@ -81,6 +82,32 @@ Curious before signing in? The [live demo](https://threadmark-sepia.vercel.app/)
 
 Live analysis accepts conversation excerpts of 20 to 20,000 characters when the service is enabled. The workspace is temporary: refreshing the page clears the conversation and report. There is no conversation history stored in a Threadmark account.
 
+## Behind the brief
+
+There are two ways through Threadmark. You can explore a prepared example without signing in, or send suitable text for a live AI-generated brief.
+
+Here's how the pieces fit together:
+
+```mermaid
+flowchart TD
+  A["Paste or import a conversation"] --> B{"Choose a mode"}
+  B -->|"Example"| C["Prebuilt sample"]
+  B -->|"Live analysis"| D["Google sign-in and bot check"]
+  D --> E["Server checks and shared limits"]
+  E --> F["Gemini extracts findings"]
+  F --> G["Check format and source lines"]
+  C --> H["Review the brief and export"]
+  G --> H
+```
+
+Three design choices sit behind that flow.
+
+**Evidence isn't an optional extra.** Every AI-generated finding must point back to the conversation. The app checks that those line numbers exist, and the reader decides whether they actually support the claim.
+
+**Changes need context.** A later suggestion doesn't automatically replace an earlier agreement. Threadmark tries to preserve that difference, along with requests that were never accepted and work that was only *reported* as finished.
+
+**The public demo needs boundaries.** Sign-in, bot verification and server-side usage limits help prevent a few visitors from exhausting the shared AI allowance. Conversations and reports stay in the temporary browser workspace rather than an application history database.
+
 ## Built with
 
 I built Threadmark as a full-stack software project. The interface is only one part of it. There is also a server-side AI workflow, sign-in, checks on generated results and limits to protect the public demo.
@@ -99,7 +126,7 @@ Next.js and React power the website and report interface. TypeScript keeps the a
 ![Google Gemini](https://img.shields.io/badge/Google_Gemini-7357CE?logo=googlegemini&logoColor=white)
 ![Zod](https://img.shields.io/badge/Zod-3068B7?logo=zod&logoColor=white)
 
-Gemini reads the conversation and produces the findings. Zod checks that the response has the right structure and that the cited source lines actually exist. It does **not** prove the model interpreted those lines correctly.
+Gemini reads the conversation and produces the findings. Zod checks that the response has the right structure; the server separately checks that cited source lines exist. Neither check proves the model interpreted those lines correctly.
 
 **The supporting services**
 
@@ -112,15 +139,15 @@ Firebase handles Google sign-in. Upstash Redis manages shared usage limits, and 
 
 The project also uses **Playwright** and Node.js-based tests to check important user flows and request handling.
 
-## A little more about the engineering
+## What I've tested, and what I haven't
 
-When you submit a conversation, Threadmark numbers the source lines and sends the text to a server-side analysis route. The server checks the request, verifies access and usage limits, then asks Gemini for a structured report.
+The repository includes automated tests for request handling, account checks, usage limits and the example experience in a browser. They also check that a rejected request can't simply carry on to the AI service.
 
-Before the result reaches the screen, the app checks its format and source references. API credentials stay on the server, not in the browser.
+That gives me confidence in the application's *behaviour*. It doesn't measure how often Gemini gets the meaning of a conversation right. Threadmark has no published accuracy benchmark, penetration-test certification or uptime measurement, and I don't want a green test result to suggest otherwise.
 
-One important boundary: **a valid source reference is not the same as a correct conclusion.** Threadmark is designed for review, not blind trust. There is no published model-accuracy benchmark yet.
+A useful next step is to test the model against a set of fictional negotiations where the expected agreements, changes and unanswered requests are known in advance.
 
-For the deeper implementation details, see the [security notes](SECURITY.md), [validation record](docs/VALIDATION.md) and [deployment guide](docs/DEPLOYMENT.md).
+For the technical details and recorded checks, see the [security notes](SECURITY.md), [validation record](docs/VALIDATION.md) and [deployment guide](docs/DEPLOYMENT.md).
 
 ## Try it locally
 
