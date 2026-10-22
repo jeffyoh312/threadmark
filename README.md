@@ -174,4 +174,4 @@ It also doesn't connect directly to WhatsApp or other messaging platforms, save 
 
 Built and maintained by **[Khaled Morshed](https://github.com/jeffyoh312)**.
 
-The code is publicly viewable, but no open-source licence is granted by default. Third-party tools and artwork keep their respective licences.
+Source code is licensed under the MIT License. Threadmark's name, logo and original branding are not licensed for reuse. Third-party assets retain their respective licences.
