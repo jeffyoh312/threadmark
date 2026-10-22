@@ -440,6 +440,8 @@ function ReportView({
 
 export default function Workspace({ settings }: { settings: PublicSettings }) {
   const auth = useAuth(settings.liveAvailable);
+  const [signingIn, setSigningIn] = useState(false);
+  const signInLocked = useRef(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [adultConfirmed, setAdultConfirmed] = useState(false);
   const [fictionalConfirmed, setFictionalConfirmed] = useState(false);
@@ -459,7 +461,25 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
   // Prevent duplicate operations before the disabled controls re-render.
   const operationLocked = useRef(false);
 
-  const isBusy = activity !== "idle";
+  const isBusy = activity !== "idle" || signingIn;
+
+  async function signIn() {
+    if (signInLocked.current || !auth.ready || !settings.liveAvailable) return;
+    signInLocked.current = true;
+    setSigningIn(true);
+    setNotice("");
+    try {
+      await auth.login();
+    } finally {
+      signInLocked.current = false;
+      setSigningIn(false);
+    }
+  }
+
+  function handlePrimaryAction() {
+    if (!auth.user) void signIn();
+    else void analyzeConversation();
+  }
   const trimmedText = conversation.trim();
   const characterCount = trimmedText.length;
   const wordCount = trimmedText ? trimmedText.split(/\s+/).length : 0;
@@ -657,7 +677,7 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                       void auth.logout();
                       setResult(null);
                       setConversation("");
-                    } else void auth.login();
+                    } else void signIn();
                   }}
                   className="rounded-lg bg-indigo-50 px-3 py-2 font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-50"
                 >
@@ -909,7 +929,7 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                       </p>
                     ) : !auth.user ? (
                       <p className="mt-3 font-medium">
-                        Sign in with Google above to run a live analysis.
+                        Use the button below to sign in with Google. Your text stays here; after signing in, complete verification and create your brief.
                       </p>
                     ) : (
                       <Verification
@@ -920,24 +940,31 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                   </div>
                   <button
                     type="button"
-                    onClick={analyzeConversation}
+                    onClick={handlePrimaryAction}
                     disabled={
                       isBusy ||
-                      !validLength ||
-                      !auth.user ||
-                      !acceptedTerms ||
-                      !adultConfirmed ||
-                      !fictionalConfirmed ||
-                      !challengeToken ||
-                      !settings.liveAvailable
+                      !settings.liveAvailable ||
+                      !auth.ready ||
+                      (!!auth.user &&
+                        (!validLength ||
+                          !acceptedTerms ||
+                          !adultConfirmed ||
+                          !fictionalConfirmed ||
+                          !challengeToken))
                     }
                     className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl bg-indigo-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
                   >
-                    {activity === "analyzing"
-                      ? "Analyzing conversation…"
-                      : activity === "importing"
-                        ? "Reading file…"
-                        : "Create conversation brief"}
+                    {signingIn
+                      ? "Opening Google sign-in…"
+                      : activity === "analyzing"
+                        ? "Analyzing conversation…"
+                        : activity === "importing"
+                          ? "Reading file…"
+                          : settings.liveAvailable && !auth.ready
+                            ? "Loading sign-in…"
+                            : settings.liveAvailable && !auth.user
+                              ? "Sign in with Google to create a brief"
+                              : "Create conversation brief"}
                     <span aria-hidden="true">→</span>
                   </button>
                   <p className="mt-3 text-xs leading-5 text-slate-400">

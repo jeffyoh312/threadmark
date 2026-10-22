@@ -2,185 +2,149 @@
   <img src="public/threadmark-logo-full.png" alt="Threadmark" width="220" />
 </p>
 
-# Threadmark
+<h1 align="center">Threadmark</h1>
 
-**Find the agreement. Keep the evidence.**
+<p align="center"><strong>Find the agreement. Keep the evidence.</strong></p>
 
-A price changes three times in a conversation. A shipping date is suggested, then confirmed. Someone asks for an invoice, but nobody accepts the task. A short summary can make all three sound settled.
+<p align="center">
+  <a href="https://threadmark-sepia.vercel.app/">Explore the demo</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#built-with">Built with</a> ·
+  <a href="docs/DEPLOYMENT.md">Deployment guide</a>
+</p>
 
-Threadmark turns a conversation into a reviewable brief: what was discussed, what was agreed, what still needs doing, and which lines support each finding. It is a Next.js application with a Gemini extraction pipeline, Google sign-in, shared usage limits, and a credential-free example mode.
+---
 
-[Why it exists](#why-it-exists) · [The workflow](#the-workflow) · [Architecture](#architecture) · [Deploy](docs/DEPLOYMENT.md) · [Security](SECURITY.md) · [Validation](docs/VALIDATION.md)
+A price changes halfway through a chat. Someone suggests a new deadline. A task gets mentioned, but nobody actually agrees to take it on.
 
-## Why it exists
+By the end, everyone's been part of the conversation. That doesn't mean everyone remembers the same agreement.
 
-Small teams often negotiate and coordinate work in messages. The difficulty is not producing another paragraph about the conversation. It is recovering the current agreement without losing the revisions that led to it.
+**Threadmark turns messy conversations into clear, reviewable briefs.** It picks out decisions, next steps, important dates and unanswered questions, then shows the original lines behind each finding.
 
-A useful brief needs to distinguish an offer from an acceptance, an assigned task from a request, and a reported completion from independent verification. It also needs a way to check those interpretations. Threadmark keeps source references attached to the findings rather than treating the generated prose as the final authority.
+Because a summary is only useful if you can check where it came from.
 
-This is a portfolio demonstration of that workflow. It is not a contract engine, messaging integration or system of record. The public demo accepts fictional or fully anonymised business conversations only.
+## Why I built it
 
-## An example of the distinction
+I've seen how easily important details get buried in long message threads, especially when people are discussing prices, deliveries or project work. Going back through the entire conversation takes time. Asking AI to summarise it is faster, but there's a catch.
+
+A summary can make a suggestion sound final. It can turn "please send the invoice" into "the invoice will be sent", even though nobody accepted the request.
+
+That distinction is the point of Threadmark.
+
+The goal isn't to have AI decide what's true. It's to make the conversation easier to understand **while keeping the evidence close enough for a person to review**.
+
+## A small example
+
+Imagine this exchange:
 
 ```text
-Customer: We need 100 blue notebooks.
-Seller: The price is RM12 each.
-Customer: Can you do RM10 each?
-Seller: Yes, RM10 each for 100 blue notebooks.
-Customer: Agreed. Can you ship on 25 October?
-Seller: Confirmed, we will ship on 25 October.
-Customer: Please send the invoice.
+1  Customer: We need 100 blue notebooks.
+2  Seller: The price is RM12 each.
+3  Customer: Can you do RM10 each?
+4  Seller: Yes, RM10 each for 100 blue notebooks.
+5  Customer: Agreed. Can you ship on 25 October?
+6  Seller: Confirmed, we will ship on 25 October.
+7  Customer: Please send the invoice.
 ```
 
-| Finding | Intended interpretation | Evidence |
+Here's what a useful brief should recognise:
+
+| What it finds | What that actually means | Source |
 | --- | --- | --- |
-| RM10 per notebook | Confirmed revised price | Lines 3–5 |
-| Shipment on 25 October | Confirmed shipping commitment | Lines 5–6 |
-| Send the invoice | Requested action; no explicit acceptance | Line 7 |
+| **RM10 per notebook** | The revised price was accepted. | Lines 3–5 |
+| **Shipment on 25 October** | The seller confirmed the date. | Lines 5–6 |
+| **Send the invoice** | A request was made. No one explicitly accepted it. | Line 7 |
 
-These are illustrative expected interpretations, not a measured accuracy score. The model can still get them wrong. The interface keeps the evidence close enough to inspect.
+The last row matters just as much as the first two.
 
-## The workflow
+This is an illustrative example, not a claim that the model always gets these distinctions right. Threadmark links findings to source lines so you can judge them yourself.
 
-1. Paste text or import a `.txt` file. File reading happens in the browser.
-2. Explore the built-in example without an account, or sign in with Google for live analysis.
-3. Confirm eligibility, content suitability and processing consent, then complete bot verification.
-4. Submit an excerpt of 20 to 20,000 characters.
-5. Review the brief, open supporting source lines and export the report as Markdown.
+## What you get
 
-Findings are grouped into summaries, goals, decisions, actions, dates and open questions. Each finding carries a status: `proposed`, `confirmed`, `superseded`, `unresolved` or `reported_complete`. Owners and deadlines can be null when the conversation does not supply them.
+- **At a glance:** a short summary of what the conversation is about.
+- **Decisions:** agreements made, including changes to earlier plans when the messages support them.
+- **Next steps:** actions, owners and deadlines, when they are actually stated.
+- **Dates and open questions:** things worth remembering and things that still need an answer.
+- **Source evidence:** open the lines behind a finding instead of taking the AI's word for it.
+- **Markdown export:** download a copy of the brief with its source references.
 
-The browser workspace is temporary. Refreshing clears the conversation, report and in-memory sign-in session. There is no saved-report history or automatic WhatsApp access.
+Threadmark also distinguishes between proposed, confirmed, replaced and unresolved details. If someone says a task is complete, that is treated as a *reported* completion, not independent proof.
 
-## Architecture
+## How it works
 
-```mermaid
-flowchart TD
-  Browser["Browser workspace"] -->|"Text, ID token, consent, bot token"| Route["POST /api/analyze"]
-  Route --> Gates["Origin, release, region and input checks"]
-  Gates --> Ingress["Redis ingress ceiling"]
-  Ingress --> Identity["Firebase token and current account verification"]
-  Identity --> Bot["Turnstile server verification"]
-  Bot --> Quota["Atomic Redis reservation"]
-  Quota --> Gemini["Gemini structured extraction"]
-  Gemini --> Validation["Schema and source-reference validation"]
-  Validation -->|"Report and original source lines"| Browser
-```
+1. **Start with a conversation.** Paste the text or import a `.txt` file.
+2. **Generate a brief.** For live AI analysis, sign in with Google, confirm the content is suitable and complete the verification step.
+3. **Read what matters.** The report groups decisions, actions, dates and open questions into sections.
+4. **Check the original words.** Each finding has a source link you can open. Export the brief if you want to keep it.
 
-The browser receives public Firebase configuration and a short-lived account token. Gemini, Redis and Turnstile server credentials stay in Vercel environment variables and server-only modules. Public source code does not need to contain a secret for the deployment to work.
+Curious before signing in? The [live demo](https://threadmark-sepia.vercel.app/) includes a **prebuilt example** that you can explore without an account or an AI request.
 
-### Evidence checks have a specific boundary
+Live analysis accepts conversation excerpts of 20 to 20,000 characters when the service is enabled. The workspace is temporary: refreshing the page clears the conversation and report. There is no conversation history stored in a Threadmark account.
 
-The server normalises line endings, assigns line numbers, then removes blank lines. A reference therefore still points to its original line number. After extraction, Zod validates the report structure and the server rejects references to nonexistent source lines.
+## Built with
 
-That check proves that a cited line exists. It cannot prove that the line supports the finding. Semantic correctness remains a review task, and the interface does not label model output as verified fact.
+I built Threadmark as a full-stack software project. The interface is only one part of it. There is also a server-side AI workflow, sign-in, checks on generated results and limits to protect the public demo.
 
-### Spending limits live outside the browser
+**The app**
 
-Disabling a button is useful interaction design, but it cannot enforce an API allowance. Redis executes the counter checks and reservation in one Lua operation, so concurrent Vercel instances share the same limits.
+![Next.js](https://img.shields.io/badge/Next.js-111827?logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-111827?logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)
 
-| Control | Default |
-| --- | --- |
-| Site ingress ceiling | 120 structurally valid requests per UTC minute |
-| Per-user analysis attempts | 2 per UTC minute, 5 per UTC day |
-| Site-wide analysis attempts | 20 per UTC day |
-| Concurrent analysis | One active lease per user |
-| Lease expiry | 120 seconds |
-| Gemini timeout | 90 seconds |
-| Automatic provider retries | Disabled |
-| Maximum generated output | 2,048 tokens |
+Next.js and React power the website and report interface. TypeScript keeps the application code predictable, while Tailwind CSS handles the responsive design.
 
-A reservation is consumed even if Gemini fails. Refunding failures would let repeated unsuccessful calls bypass the budget. Daily counters reset at midnight UTC, not 24 hours after each user's first request. Fixed windows can admit a burst across a minute boundary.
+**The analysis**
 
-If Redis cannot confirm a reservation, analysis stops. A shared pause key blocks new admissions across deployments using the same namespace. This limits provider attempts through this app; it does not guarantee zero hosting costs, uninterrupted availability or protection against every form of abuse.
+![Google Gemini](https://img.shields.io/badge/Google_Gemini-7357CE?logo=googlegemini&logoColor=white)
+![Zod](https://img.shields.io/badge/Zod-3068B7?logo=zod&logoColor=white)
 
-### Authentication is checked twice
+Gemini reads the conversation and produces the findings. Zod checks that the response has the right structure and that the cited source lines actually exist. It does **not** prove the model interpreted those lines correctly.
 
-The server verifies Firebase's JWT signature, issuer, audience, expiry, required claims, verified email and Google provider. It then asks Firebase for the current account state, rejecting deleted or disabled accounts and sessions older than the account's revocation timestamp. A valid signature alone is insufficient for immediate account revocation.
+**The supporting services**
 
-Google sign-in establishes identity, not good intent. Account quotas, a site-wide cap, Turnstile, an optional email allowlist and platform firewall controls address different parts of the abuse problem.
+![Firebase](https://img.shields.io/badge/Firebase_Auth-DD2C00?logo=firebase&logoColor=white)
+![Upstash Redis](https://img.shields.io/badge/Upstash_Redis-00A86B?logo=redis&logoColor=white)
+![Cloudflare](https://img.shields.io/badge/Cloudflare_Turnstile-F38020?logo=cloudflare&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-111827?logo=vercel&logoColor=white)
 
-### A small application data footprint
+Firebase handles Google sign-in. Upstash Redis manages shared usage limits, and Cloudflare Turnstile helps filter automated requests. Vercel hosts the application and runs the server-side analysis route.
 
-Conversations and reports are not written to an application database. Firebase stores identity records; Upstash stores pseudonymous counters, locks and optional blocks. The browser holds the active workspace. Provider logs and provider content processing still exist, and the public privacy notice explains that distinction.
+The project also uses **Playwright** and Node.js-based tests to check important user flows and request handling.
 
-Gemini's unpaid service can use submitted content for product improvement and human review. `store: false` does not override those terms. The demo therefore prohibits personal, sensitive and confidential submissions, including private business conversations.
+## A little more about the engineering
 
-## Stack
+When you submit a conversation, Threadmark numbers the source lines and sends the text to a server-side analysis route. The server checks the request, verifies access and usage limits, then asks Gemini for a structured report.
 
-| Layer | Technology | Role |
-| --- | --- | --- |
-| Application | Next.js App Router, React, TypeScript | Public pages, workspace and server route |
-| Styling | Tailwind CSS | Responsive indigo/slate interface |
-| Contract | Zod | Shared runtime and TypeScript report definitions |
-| Extraction | Google GenAI SDK | Server-side Gemini request with structured output |
-| Identity | Firebase Authentication, jose | Google sign-in and server token verification |
-| Shared limits | Upstash Redis REST and Lua | Atomic quotas, leases and emergency pause |
-| Bot verification | Cloudflare Turnstile | Single-use tokens verified on the server |
-| Hosting | Vercel | Builds, server execution and trusted region headers |
-| Verification | Node test runner, Playwright, Lua test harness | Request, identity, browser and quota checks |
+Before the result reaches the screen, the app checks its format and source references. API credentials stay on the server, not in the browser.
 
-## Deploy
+One important boundary: **a valid source reference is not the same as a correct conclusion.** Threadmark is designed for review, not blind trust. There is no published model-accuracy benchmark yet.
 
-The default build is an example-only site. No credentials are required to build it, and no live analysis is possible until the operator explicitly enables it.
+For the deeper implementation details, see the [security notes](SECURITY.md), [validation record](docs/VALIDATION.md) and [deployment guide](docs/DEPLOYMENT.md).
 
-For a Vercel deployment, import the repository, select the folder containing `package.json` as the root, use Node.js 24, install with `npm ci` and build with `npm run build`. Configure real values in Vercel, never in GitHub. A local `.env.local` is not required for a Vercel-only workflow.
+## Try it locally
 
-[Deployment guide](docs/DEPLOYMENT.md) covers every environment variable, Firebase, Turnstile, Upstash, Google OAuth publication, domain verification, regional limits, platform protections and hosted acceptance checks. [Migration guide](docs/MIGRATION.md) covers replacing an older project without retaining nested source copies.
+You can run the prebuilt example without cloud credentials:
 
-## Run the example as a contributor
-
-```sh
+```bash
 npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:3000`. No cloud credentials are needed for the example. Node.js 24 is the supported release environment. Optional local service variables belong in an ignored `.env.local`, with a development quota namespace.
+Then open `http://127.0.0.1:3000`.
 
-## Verification
+Node.js 24 is used for the supported deployment setup. Live AI analysis requires separate service configuration; the [deployment guide](docs/DEPLOYMENT.md) covers it without putting secret keys in the repository.
 
-```sh
-npm run test:security
-npm run lint
-npm run typecheck
-npm run build
-npx playwright install chromium
-npm run test:e2e
-npm audit --omit=dev
-npm run security:check
-```
+## What it isn't (yet)
 
-Security tests exercise the ordered request pipeline with injected service adapters. They assert that denied requests cannot reach the model, that failed provider requests still release their lease, and that raw provider errors never become public responses. Identity tests use signed tokens, including wrong keys and claims. Browser tests cover the credential-free example and public pages. Quota tests execute the actual Lua scripts in an emulated Redis environment; they are distinct from a hosted Upstash acceptance test.
+Threadmark is a portfolio project and an early demonstration of an evidence-backed conversation brief. It isn't a legal contract checker or a replacement for human confirmation.
 
-See [validation](docs/VALIDATION.md) for recorded results and untested boundaries. The GitHub workflow runs checks without deployment secrets. No model-accuracy benchmark, penetration-test certification or production uptime measurement is claimed.
+It also doesn't connect directly to WhatsApp or other messaging platforms, save past reports, or provide shared team workspaces. You bring the text yourself.
 
-## Repository map
+**Please only use fictional or fully anonymised, non-confidential conversations in the public demo.** Live analysis sends submitted text to an external AI provider, whose processing terms still apply. Don't paste private client discussions, personal details or sensitive business information. See the app's privacy notice for more.
 
-| Path | Responsibility |
-| --- | --- |
-| `src/app/page.tsx` | Server entry point and public deployment settings |
-| `src/components/workspace.tsx` | Input, report presentation, evidence navigation and export |
-| `src/components/verification.tsx` | Turnstile widget lifecycle |
-| `src/lib/use-auth.ts` | In-memory Google sign-in and account deletion |
-| `src/app/api/analyze/route.ts` | Production dependency wiring |
-| `src/lib/server/analyze.ts` | Ordered request checks and orchestration |
-| `src/lib/server/gemini.ts` | Extraction prompt and bounded provider call |
-| `src/lib/server/identity.ts`, `account-status.ts` | Token and current-account validation |
-| `src/lib/server/quotas.ts`, `quota-scripts.ts` | Shared admission controls |
-| `src/lib/server/release.ts` | Required configuration and regional policy |
-| `src/lib/report-schema.ts` | Report contract and input limit |
-| `src/app/privacy`, `terms`, `account`, `accessibility` | Public policy and account pages |
-| `tests`, `scripts`, `.github/workflows` | Reproducible checks and release gates |
-| `docs` | Deployment, maintenance, migration and validation |
+---
 
-## Current scope and next work
+Built and maintained by **[Khaled Morshed](https://github.com/jeffyoh312)**.
 
-Implemented: pasted/text-file input, example report, grouped findings, source references, Markdown export, Google sign-in, account deletion, consent checks, bot verification, shared quotas, release gates and public policy pages.
-
-Not implemented: messaging-platform integrations, persistent report history, team workspaces, report editing, human approval workflows or a representative accuracy benchmark. These would require additional data retention, access-control and evaluation design rather than simply adding buttons.
-
-The next useful evaluation is a versioned set of fictional negotiations with expected decisions and evidence. Scoring unsupported conclusions separately from omissions would make extraction quality measurable without presenting schema validity as accuracy.
-
-## Source and ownership
-
-Maintained by Khaled Morshed. The repository is available for inspection. No open-source licence is granted by making the source public; third-party dependencies retain their own licences. The Threadmark name and supplied artwork are separate from dependency licences.
+The code is publicly viewable, but no open-source licence is granted by default. Third-party tools and artwork keep their respective licences.
