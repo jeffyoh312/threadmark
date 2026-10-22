@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/threadmark-logo.png" alt="Threadmark" width="220" />
+  <img src="public/threadmark-logo-full.png" alt="Threadmark" width="220" />
 </p>
 
 # Threadmark
