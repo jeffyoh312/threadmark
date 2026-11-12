@@ -10,7 +10,7 @@ const patterns = [
   /\bAQ[0-9A-Za-z_-]{60,}/,
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
   /\b(?:ghp_|github_pat_)[A-Za-z0-9_]{20,}/,
-  /(?:GEMINI_API_KEY|GOOGLE_API_KEY|UPSTASH_REDIS_REST_TOKEN|TURNSTILE_SECRET_KEY)[ \t]*[=:][ \t]*["']?([A-Za-z0-9_-]{20,})/,
+  /(?:GEMINI_API_KEY|GOOGLE_API_KEY|UPSTASH_REDIS_REST_TOKEN|TURNSTILE_SECRET_KEY|RATE_LIMIT_SECRET)[ \t]*[=:][ \t]*["']?([A-Za-z0-9_-]{20,})/,
 ];
 function git(args) {
   return execFileSync("git", args, {
@@ -36,7 +36,7 @@ function scan(bytes, label) {
 try {
   const root = git(["rev-parse", "--show-toplevel"]).trim();
   process.chdir(root);
-  const tracked = git(["ls-files", "-z"]).split("\0").filter(Boolean);
+  const tracked = git(["ls-files", "--cached", "--others", "--exclude-standard", "-z"]).split("\0").filter(Boolean);
   for (const name of tracked) {
     if (privatePath(name))
       findings.add(`Private/generated tracked path: ${name}`);

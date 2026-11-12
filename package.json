@@ -16,8 +16,6 @@
   },
   "dependencies": {
     "@google/genai": "^2.30.0",
-    "firebase": "^13.1.0",
-    "jose": "^6.2.13",
     "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -38,8 +36,5 @@
   },
   "engines": {
     "node": ">=22.18.0"
-  },
-  "overrides": {
-    "@grpc/grpc-js": "1.14.6"
   }
 }

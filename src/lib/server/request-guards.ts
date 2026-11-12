@@ -1,4 +1,4 @@
-// Request policy complements verified identity and shared quotas.
+// Request policy complements visitor checks and shared quotas.
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 export const MAX_BODY_BYTES = 256 * 1024;
 
@@ -51,7 +51,7 @@ export function validateAnalysisRequest(
     );
   }
   const origin = request.headers.get("origin");
-  // Requests from scripts still need a valid bearer token and consume the same quota.
+  // Scripts can forge Origin, so bot verification and shared quotas remain mandatory.
   if (
     url.origin !== allowed ||
     (origin && origin !== allowed) ||

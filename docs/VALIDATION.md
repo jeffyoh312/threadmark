@@ -1,58 +1,32 @@
-# Release validation
+# Validation record
 
-Validation date: 22 October 2026. These results apply to this source archive, not to an independently configured production deployment.
+Update prepared 12 November 2026 from repository commit `e49a2bd2e5a578f19d07a15d533b3f7df405ee2a`.
+
+## Checks completed
 
 | Check | Result |
 | --- | --- |
-| Clean locked dependency installation | Passed |
-| TypeScript type checking | Passed |
-| ESLint | Passed |
-| Next.js production build | Passed, with live analysis disabled |
-| Source and staged secret-pattern scan | Passed; no known credential patterns found |
-| Server security tests | 23 passed |
-| Redis Lua quota tests | 6 passed |
-| Desktop and mobile browser checks | 8 passed across isolated runs |
-| Production dependency audit | No reported vulnerabilities |
-| Full dependency audit | Five high-severity entries in one development dependency chain; see below |
+| `npm run test:security` | 24 tests passed |
+| `python tests/quota_lua.py` | 8 tests passed |
+| `npm run lint` | Passed |
+| `npm run typecheck` | Passed |
+| `npm run build` | Production example-mode build passed |
+| `npm run security:check` | No matching secret patterns found in working files, index or locally available history |
+| `npm audit --omit=dev --audit-level=high` | No production vulnerabilities reported |
+| `git diff --check` | Passed |
+| Playwright HTTP checks | 2 passed, one in each configured project |
+| Playwright browser cases | 8 blocked before execution by Chromium process startup restrictions |
 
-## Security coverage
+The browser run could not launch the installed Chromium because the environment denied a required process socket. Downloading Playwright's bundled Chromium also returned an unusable archive. The separate browser interface could not reach the local server. Desktop/mobile visual layout, browser export, focus behavior and interaction tests therefore remain **unverified in this environment**, not passed. Run `npm run test:e2e` on your machine or GitHub Actions with Playwright Chromium installed.
 
-The server suite exercises signed identity claims, issuer/audience validation, account revocation/deletion checks, origin and region restrictions, consent and input validation, bot-token hostname/action checks, configuration gates, admission ordering, invalid evidence references, sanitised provider failures and lease release. External identity and model requests use test doubles. No production credentials are used.
+## What the tests cover
 
-The quota suite executes the application's Lua scripts using fakeredis with Lua support. It covers per-user and global limits, lease ownership, expiry, emergency pause, blocked accounts and the shared ingress ceiling. A concurrent 100-request test admitted exactly 20 requests under the configured site limit. This verifies atomic script behavior in the emulator; a real Upstash deployment still needs its connection, credentials and operational limits checked.
+Node tests cover anonymous visitor derivation, spoofed/missing IP headers, IPv6 normalization, configuration/region/origin checks, input limits, consent, ingress before body parsing, bot verification, provider error sanitization, completed structured responses and invalid evidence IDs. Service orchestration uses injected test doubles; it does not call Gemini or Cloudflare.
 
-The browser suite checks the example, evidence expansion, Markdown export, reset, public policy/account pages, mobile overflow, text-only import, disabled analysis, protected environment paths and response headers. The example generated no analysis request and no captured page errors. It does not establish complete accessibility conformance.
+Lua tests execute the production scripts using fakeredis with Lua support. They cover visitor and site quotas, atomic concurrent reservations, ownership-safe release, expired concurrency entries, bucket rollover, pause/block flags and visitor/site ingress limits. A concurrent 100-request test admits exactly 20 under a site cap of 20. This is not a hosted load test or an Upstash integration test.
 
-The normal Playwright Chromium download failed in the validation environment. Browser checks therefore used a temporary Chromium 153 binary with Playwright 1.64.1. Its single-process mode could not reliably reopen browser contexts, so each test case ran in a separate invocation for both viewport projects. All eight cases passed. The temporary browser is not a project dependency and is not included in the archive. GitHub Actions installs Playwright's matching Chromium and runs the complete suite normally; that hosted workflow has not yet run for this release.
+## Remaining production checks
 
-## Dependency advisory
+No Gemini, Turnstile, Upstash or Vercel credentials were supplied. No live model call, actual bot challenge, Vercel header acceptance, deployment protection change or deployment was performed. Follow the hosted smoke checks in DEPLOYMENT.md after configuration.
 
-The production-only audit reported no vulnerabilities. The full audit reported five high-severity entries associated with `GHSA-vfj7-8cjw-p6xm`, through the development chain `eslint-config-next` / `@next/eslint-plugin-next` / `fast-glob` / `micromatch` / `braces`. The resolved `braces` version is 3.0.3. No compatible patched resolution was available during validation. These dependencies are build/lint tooling, not an application analysis endpoint, but they remain part of the development supply chain.
-
-Do not describe this as a completely clean dependency audit. Track the upstream fix and update the lockfile when a supported resolution is available. Avoid running the toolchain on untrusted repositories. The `@grpc/grpc-js` override pins 1.14.6 to address the separately identified transitive dependency issue; reassess the override when updating Firebase.
-
-## Before live launch
-
-Complete the hosted acceptance checklist in [DEPLOYMENT.md](DEPLOYMENT.md). Real Google popup sign-in, Cloudflare token issuance, Firebase account deletion/revocation, Upstash REST admission, Gemini output, Vercel country headers, firewall settings and secret visibility require the owner's actual services and production domain. They were not tested against live accounts in this environment.
-
-Policy text must match actual operator identity, billing mode, intended audience and data processing. Automated tests are not legal review, penetration testing, a spending guarantee or proof that the site cannot be disrupted. Continue monitoring provider usage, dependency advisories and failed requests after deployment.
-
-## Reproduction
-
-GitHub Actions runs the checks without production secrets. For a development environment:
-
-```bash
-npm ci
-npm run security:check
-npm run test:security
-python -m pip install -r tests/requirements.txt
-python tests/quota_lua.py
-npm run lint
-npm run typecheck
-npm audit --omit=dev --audit-level=high
-npm run build
-npx playwright install --with-deps chromium
-npm run test:e2e
-```
-
-The secret-pattern check requires a Git repository. It examines tracked files, the index and locally available history. It cannot detect every secret or inspect unfetched remote history. The distribution archive contains source and placeholders, not Git history, dependencies, generated output or real environment files.
+No live security attack or stress test was run. No model-accuracy benchmark was performed. A schema-valid, correctly numbered citation can still support a mistaken interpretation.

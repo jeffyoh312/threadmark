@@ -10,10 +10,9 @@ export default function Accessibility() {
         assistive technology.
       </p>
       <p>
-        Google sign-in and Cloudflare verification are third-party services. If
-        a popup, challenge, report or control prevents access, contact the
-        operator with the page, browser and issue. Do not include private
-        conversation content.
+        Cloudflare verification is a third-party service. If a popup, challenge,
+        report or control prevents access, contact the operator with the page,
+        browser and issue. Do not include private conversation content.
       </p>
       <p>
         No formal accessibility certification or full WCAG conformance audit is

@@ -14,8 +14,8 @@ export default function Terms() {
       <p>
         Live analysis is for adults aged 18 or older in supported regions. It is
         not intended for children. Do not misrepresent your age or location or
-        bypass regional restrictions. Access may be limited to invited accounts.
-        The example is available without submitting text or signing in.
+        bypass regional restrictions. No account or invitation is required. The
+        example is available without submitting text or signing in.
       </p>
       <h2>Permitted content</h2>
       <p>
@@ -38,10 +38,10 @@ export default function Terms() {
       <h2>Acceptable use</h2>
       <p>
         Do not attack the service, automate bulk submissions, evade quotas with
-        multiple accounts, attempt unauthorised access, extract credentials,
-        submit unlawful content or interfere with other users. Public
-        source-code review is welcome. Report security issues privately rather
-        than running disruptive tests against the live demo.
+        changing network addresses, attempt unauthorised access, extract
+        credentials, submit unlawful content or interfere with other users.
+        Public source-code review is welcome. Report security issues privately
+        rather than running disruptive tests against the live demo.
       </p>
       <h2>Processing permission</h2>
       <p>
@@ -70,9 +70,9 @@ export default function Terms() {
       <h2>Changes and contact</h2>
       <p>
         Material changes will be reflected in the version date and submission
-        acceptance. If you disagree, stop using live analysis and use the
-        account page to request deletion. These terms do not transfer ownership
-        of third-party software, branding or content.
+        acceptance. If you disagree, stop using live analysis and contact the
+        operator for data requests. These terms do not transfer ownership of
+        third-party software, branding or content.
       </p>
       <Contact />
     </LegalPage>

@@ -1,4 +1,4 @@
-// One atomic reservation covers all counters and the per-user lease.
+// One atomic reservation covers all counters and the per-network lease.
 // Redis TIME keeps daily windows consistent across regions (UTC midnight).
 export const RESERVE_QUOTA = `
 if redis.call('GET', KEYS[5]) == '1' then return {0, 'disabled', 60} end
@@ -17,6 +17,10 @@ for i = 1, 3 do
   end
 end
 if redis.call('EXISTS', KEYS[4]) == 1 then return {0, 'busy', 10} end
+redis.call('ZREMRANGEBYSCORE', KEYS[7], '-inf', now)
+if redis.call('ZCARD', KEYS[7]) >= tonumber(ARGV[5]) then return {0, 'site_busy', 10} end
+redis.call('ZADD', KEYS[7], now + 120, ARGV[4])
+redis.call('EXPIRE', KEYS[7], 240)
 redis.call('SET', KEYS[4], ARGV[4], 'EX', 120)
 for i = 1, 3 do
   redis.call('HSET', KEYS[i], 'bucket', math.floor(now / windows[i]), 'count', counts[i] + 1)
@@ -26,20 +30,27 @@ return {1, 'ok', 0}
 `;
 
 export const RELEASE_QUOTA = `
+redis.call('ZREM', KEYS[2], ARGV[1])
 if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end
 return 0
 `;
 
-// Reject excess requests before authentication and bot-verification network calls.
+// Reject excess requests before body parsing and bot-verification network calls.
 export const INGRESS_QUOTA = `
 if redis.call('GET', KEYS[2]) == '1' then return {-1, 60} end
 local now = tonumber(redis.call('TIME')[1])
 local bucket = math.floor(now / 60)
+local visitor = redis.call('HMGET', KEYS[3], 'bucket', 'count')
+local visitorCount = 0
+if tonumber(visitor[1]) == bucket then visitorCount = tonumber(visitor[2]) or 0 end
+if visitorCount >= tonumber(ARGV[2]) then return {0, 60 - (now % 60)} end
 local stored = redis.call('HMGET', KEYS[1], 'bucket', 'count')
 local count = 0
 if tonumber(stored[1]) == bucket then count = tonumber(stored[2]) or 0 end
 if count >= tonumber(ARGV[1]) then return {0, 60 - (now % 60)} end
 redis.call('HSET', KEYS[1], 'bucket', bucket, 'count', count + 1)
 redis.call('EXPIRE', KEYS[1], 120)
+redis.call('HSET', KEYS[3], 'bucket', bucket, 'count', visitorCount + 1)
+redis.call('EXPIRE', KEYS[3], 120)
 return {1, 0}
 `;

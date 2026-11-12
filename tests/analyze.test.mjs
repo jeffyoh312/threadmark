@@ -14,11 +14,7 @@ const env = {
   GEMINI_MODEL: "test-model",
   UPSTASH_REDIS_REST_URL: "https://test.upstash.io",
   UPSTASH_REDIS_REST_TOKEN: "test-token",
-  FIREBASE_PROJECT_ID: "auth-project",
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID: "auth-project",
-  NEXT_PUBLIC_FIREBASE_API_KEY: "public-test",
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "auth-project.firebaseapp.com",
-  NEXT_PUBLIC_FIREBASE_APP_ID: "test-app",
+  RATE_LIMIT_SECRET: "a".repeat(64),
   TURNSTILE_SECRET_KEY: "test-secret",
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: "test-site",
   PUBLIC_CONTACT_EMAIL: "operator@example.com",
@@ -59,7 +55,7 @@ function setup(overrides = {}) {
       },
       identity: async () => {
         calls.push("identity");
-        return { userId: "user" };
+        return { visitorId: "visitor" };
       },
       challenge: async () => {
         calls.push("challenge");
@@ -90,7 +86,7 @@ function request(body = input, headers = {}) {
     body: JSON.stringify(body),
   });
 }
-test("authorized analysis reserves before provider and preserves source IDs", async () => {
+test("anonymous analysis reserves before provider and preserves source IDs", async () => {
   const { calls, deps } = setup();
   const response = await analyze(request(), deps);
   assert.equal(response.status, 200);
@@ -100,8 +96,8 @@ test("authorized analysis reserves before provider and preserves source IDs", as
     [1, 3],
   );
   assert.deepEqual(calls, [
-    "ingress",
     "identity",
+    "ingress",
     "challenge",
     "reserve",
     "generate",
@@ -115,7 +111,7 @@ test("disabled, preview, unconfigured and non-Vercel production make no external
     { VERCEL_ENV: "preview" },
     { PUBLIC_CONTACT_EMAIL: "" },
     { VERCEL: "" },
-    { GEMINI_API_KEY: env.NEXT_PUBLIC_FIREBASE_API_KEY },
+    { RATE_LIMIT_SECRET: "short" },
   ]) {
     const { calls, deps } = setup({ env: { ...env, ...config } });
     assert.equal((await analyze(request(), deps)).status, 503);
@@ -149,10 +145,10 @@ test("consent, policy, input length and unknown fields are enforced server-side"
       (await analyze(request({ ...input, ...changes }), deps)).status,
       400,
     );
-    assert.deepEqual(calls, []);
+    assert.deepEqual(calls, ["identity", "ingress"]);
   }
 });
-test("authorization, verification and quota failures never reach Gemini", async () => {
+test("visitor checks, verification and quota failures never reach Gemini", async () => {
   for (const [stage, status] of [
     ["ingress", 429],
     ["identity", 401],
@@ -207,4 +203,18 @@ test("unpaid configuration denies paid-only regions even if allowlisted", async 
       .status,
     403,
   );
+});
+
+test("rate-limited requests do not read the body or call verification", async () => {
+  const { calls, deps } = setup({ ingress: async () => { throw new RequestFailure(429, "Wait", 60); } });
+  const unreadable = request();
+  Object.defineProperty(unreadable, "body", { get() { throw Error("body must not be read"); } });
+  assert.equal((await analyze(unreadable, deps)).status, 429);
+  assert.deepEqual(calls, ["identity"]);
+});
+
+test("paid public mode has no account or country allowlist requirement", async () => {
+  const { calls, deps } = setup({ env: { ...env, GEMINI_DATA_MODE: "paid", ALLOWED_COUNTRIES: "" } });
+  assert.equal((await analyze(request(input, { "x-vercel-ip-country": "GB" }), deps)).status, 200);
+  assert.ok(calls.includes("generate"));
 });

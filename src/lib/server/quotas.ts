@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { RESERVE_QUOTA, RELEASE_QUOTA, INGRESS_QUOTA } from "./quota-scripts";
 import { RequestFailure } from "./request-guards";
 
@@ -63,31 +63,33 @@ async function redis(command: (string | number)[]): Promise<unknown> {
   }
 }
 
-export async function reserveAnalysis(userId: string) {
+export async function reserveAnalysis(visitorId: string) {
   // Share one namespace across all production deployments. Do not rotate it to reset quotas.
   const namespace = process.env.QUOTA_NAMESPACE || "threadmark:production:v1";
   if (!/^[a-zA-Z0-9:_-]{1,80}$/.test(namespace))
     throw new RequestFailure(503, "Invalid usage configuration.");
-  const userKey = createHash("sha256").update(userId).digest("hex");
+  const visitorKey = visitorId;
   const lease = randomUUID();
-  const lock = `${namespace}:user:${userKey}:lock`;
+  const lock = `${namespace}:user:${visitorKey}:lock`;
   const keys = [
-    `${namespace}:user:${userKey}:minute`,
-    `${namespace}:user:${userKey}:day`,
+    `${namespace}:user:${visitorKey}:minute`,
+    `${namespace}:user:${visitorKey}:day`,
     `${namespace}:site:day`,
     lock,
     `${namespace}:disabled`,
-    `${namespace}:blocked:${userKey}`,
+    `${namespace}:blocked:${visitorKey}`,
+    `${namespace}:site:active`,
   ];
   const result = await redis([
     "EVAL",
     RESERVE_QUOTA,
     keys.length,
     ...keys,
-    limit("USER_ANALYSES_PER_MINUTE", 2, 10),
-    limit("USER_ANALYSES_PER_DAY", 5, 100),
+    limit("VISITOR_ANALYSES_PER_MINUTE", 2, 10),
+    limit("VISITOR_ANALYSES_PER_DAY", 5, 100),
     limit("SITE_ANALYSES_PER_DAY", 20, 1000),
     lease,
+    limit("SITE_CONCURRENT_ANALYSES", 3, 20),
   ]);
   if (
     !Array.isArray(result) ||
@@ -99,12 +101,13 @@ export async function reserveAnalysis(userId: string) {
   if (result[0] !== 1) {
     const messages: Record<string, string> = {
       disabled: "Live analysis is temporarily paused.",
-      blocked: "Analysis is unavailable for this account.",
+      blocked: "Analysis is unavailable for this network.",
       minute: "Please wait a minute before analyzing again.",
       user_day: "Your daily allowance is used. It resets at midnight UTC.",
       site_day:
         "Today's site allowance is used. Please return after midnight UTC.",
-      busy: "An analysis is already running for your account.",
+      site_busy: "All analysis slots are in use. Please try again shortly.",
+      busy: "An analysis is already running for your network.",
     };
     throw new RequestFailure(
       result[1] === "disabled" ? 503 : result[1] === "blocked" ? 403 : 429,
@@ -115,24 +118,33 @@ export async function reserveAnalysis(userId: string) {
   // Reservations are never refunded: failed requests still count towards the cap.
   return async () => {
     try {
-      await redis(["EVAL", RELEASE_QUOTA, 1, lock, lease]);
+      await redis([
+        "EVAL",
+        RELEASE_QUOTA,
+        2,
+        lock,
+        `${namespace}:site:active`,
+        lease,
+      ]);
     } catch {
       /* Lease expires automatically; a failed release must not mask the report. */
     }
   };
 }
 
-export async function checkIngress() {
+export async function checkIngress(visitorId: string) {
   const namespace = process.env.QUOTA_NAMESPACE || "threadmark:production:v1";
   if (!/^[a-zA-Z0-9:_-]{1,80}$/.test(namespace))
     throw new RequestFailure(503, "Invalid usage configuration.");
   const result = await redis([
     "EVAL",
     INGRESS_QUOTA,
-    2,
+    3,
     `${namespace}:ingress`,
     `${namespace}:disabled`,
+    `${namespace}:visitor:${visitorId}:ingress`,
     120,
+    10,
   ]);
   if (!Array.isArray(result) || result.length !== 2)
     throw new RequestFailure(503, "Usage checks are unavailable.");

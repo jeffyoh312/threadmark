@@ -1,133 +1,99 @@
-# Deployment and public launch
+# Deploy Threadmark on Vercel
 
-Threadmark has two deployment states. Example-only mode can be published without service credentials. Live mode requires account configuration, published operator details, provider-policy review and hosted acceptance checks. A successful build is not evidence that external services are configured correctly.
+Use Node.js 24, the Next.js framework preset, repository root as Root Directory, `npm ci` for install, and `npm run build` for build. There is no account setup or OAuth configuration.
 
-## 1. Publish the source
+## 1. Configure services
 
-Apply [MIGRATION.md](MIGRATION.md) if replacing an earlier copy. Commit source, lockfile, tests, documentation and `.env.example`; exclude real environment files, dependencies, build output and local history archives. Enable GitHub secret scanning/push protection where available and protect the main branch with required CI review/checks appropriate to the repository.
+Create a dedicated Gemini API key for this project, an Upstash Redis database and a Cloudflare Turnstile widget. In Turnstile, allow your exact production hostname. Keep the widget action `analyze`. Do not use the public testing keys in a live deployment.
 
-The repository has no deployment secrets in its workflow. Do not paste production credentials into GitHub issues, screenshots, README examples or workflow YAML. Use MFA for GitHub, Vercel, Google, Upstash and Cloudflare.
+Restrict the Gemini key to its intended Google API where supported. Keep Google account access and credentials separate from GitHub. If a key was ever exposed, revoke it and create another; hiding it in a later commit does not revoke it.
 
-## 2. Deploy the example first
+## 2. Set environment variables
 
-Import the repository at https://vercel.com/new. Select Next.js, the root directory containing `package.json`, Node.js 24.x, install command `npm ci --include=dev`, and build command `npm run build`.
+In Vercel, open the project, then Settings > Environment Variables. Set these for **Production**:
 
-Leave `ANALYSIS_ENABLED=false` and `RELEASE_READY=false`. Open the production URL and test the example and policy links. The live endpoint returns 503 in this state. No `.env.local` is needed for Vercel-only hosting. Public settings and browser configuration are embedded at build time, so redeploy after changing variables.
-
-## 3. Domain and Google OAuth publication
-
-Firebase Google sign-in can technically operate on an authorised `vercel.app` hostname. That does not remove Google's production OAuth requirements. Google's policy requires a public homepage on a verified domain under the operator's ownership, with Privacy Policy and Terms links. Firebase-created OAuth clients remain subject to that policy.
-
-For public Google sign-in, configure a domain under your ownership, verify it as required by Google, attach it to Vercel, and use its exact HTTPS origin as `APP_ORIGIN`. An existing owned domain/subdomain can be used. If those requirements are not met, keep the public site in example-only mode; a working test login is not proof of publication compliance.
-
-In Google Auth Platform, configure accurate app branding, support/developer contact, homepage, `/privacy`, `/terms`, authorised domains, audience and publishing status. Request only the existing identity scopes. Complete any verification Google requires. Do not bypass a verification warning by claiming the application has been approved.
-
-Reference: https://developers.google.com/identity/protocols/oauth2/policies and https://developers.google.com/terms/api-services-user-data-policy.
-
-## 4. Firebase Authentication
-
-Create a separate project at https://console.firebase.google.com/ for authentication. Keep Gemini in a different Google project. Enable Authentication > Google, choose a support email, and register a Web app under project settings. Copy `apiKey`, `authDomain`, `projectId` and `appId` into the matching environment variables.
-
-Use Firebase's default `PROJECT.firebaseapp.com` authDomain. The release CSP and configuration validation expect that domain form. Add the production app hostname to Authentication > Settings > Authorised domains. For optional local development also authorise `localhost` and `127.0.0.1` explicitly.
-
-The Firebase web key is public. Restrict it to the required Firebase Auth APIs, including Identity Toolkit and Token Service. Do not authorise the Generative Language API on this key and never reuse the Gemini key. Because the server performs an account lookup, a browser-referrer-only restriction can prevent server verification; use appropriate API restrictions and Firebase authorised domains rather than removing all restrictions to fix login.
-
-No Firebase service-account JSON, Admin SDK private key, Firestore database or Firebase Hosting deployment is required. Review the selected service plan and quotas before enabling billing. Accounts can be deleted through `/account`, which requires recent Google reauthentication.
-
-Reference: https://firebase.google.com/docs/auth/web/google-signin and https://firebase.google.com/docs/projects/api-keys.
-
-## 5. Upstash Redis
-
-Create a Redis database at https://console.upstash.com/. Copy the HTTPS REST URL and read/write REST token. Use the free plan if suitable for the intended volume, without enabling paid upgrades unintentionally.
-
-Use the same production database and `QUOTA_NAMESPACE` across every production redeployment. Clearing the database or changing the namespace resets usage counts. Never point automated tests at production Redis. The code sends credentials only to an HTTPS `*.upstash.io` endpoint.
-
-## 6. Cloudflare Turnstile
-
-Create a Managed widget at https://dash.cloudflare.com/ under Turnstile. Authorise the app hostname, copy its public site key and private secret, and leave pre-clearance disabled for this setup. Turnstile works without moving DNS or proxying the site through Cloudflare.
-
-The widget emits tokens with action `analyze`. The backend verifies success, action and hostname with Cloudflare. Tokens are single-use and expire after five minutes. Live release validation refuses documented test-key prefixes. Use real keys only in the owner's deployment, not in CI.
-
-Reference: https://developers.cloudflare.com/turnstile/get-started/ and https://developers.cloudflare.com/turnstile/get-started/server-side-validation/.
-
-## 7. Vercel environment variables
-
-Set these under Project Settings > Environment Variables for **Production only**. Mark private credentials as Secret/Sensitive where the dashboard provides that option. Do not provide live Gemini/Redis/Turnstile credentials to Preview deployments. Set `ANALYSIS_ENABLED=false` in Preview explicitly. Vercel supplies `VERCEL` and `VERCEL_ENV`; do not override them.
-
-| Variable | Value and purpose |
+| Variable | Value |
 | --- | --- |
-| `ANALYSIS_ENABLED` | `false` during setup; `true` only for the live release |
-| `RELEASE_READY` | `true` only after the operator completes this guide and reviews policies |
-| `APP_ORIGIN` | Exact stable HTTPS app origin, no path or trailing slash |
-| `PUBLIC_OPERATOR_NAME` | Public operator identity; template uses Khaled Morshed |
-| `PUBLIC_CONTACT_EMAIL` | A monitored public email for support, privacy and security requests |
-| `GEMINI_API_KEY` | Private key for the separate Gemini project |
-| `GEMINI_MODEL` | Exact supported model ID already tested with the interactions API |
-| `GEMINI_DATA_MODE` | `unpaid` or `paid`, matching the actual Google project billing status |
-| `UPSTASH_REDIS_REST_URL` | Database HTTPS REST URL |
-| `UPSTASH_REDIS_REST_TOKEN` | Private read/write REST token |
-| `TURNSTILE_SECRET_KEY` | Private widget verification secret |
+| `APP_ORIGIN` | Exact public origin, e.g. `https://threadmark-sepia.vercel.app`, without trailing slash |
+| `GEMINI_API_KEY` | Private Google API key |
+| `GEMINI_MODEL` | A model available to your Google project that supports Interactions and structured JSON; the current Google examples use `gemini-3.8-flash` |
+| `GEMINI_DATA_MODE` | `paid` or `unpaid`, matching the actual Google project terms |
+| `UPSTASH_REDIS_REST_URL` | Your database's `https://….upstash.io` REST URL |
+| `UPSTASH_REDIS_REST_TOKEN` | Private REST token |
+| `TURNSTILE_SECRET_KEY` | Private Cloudflare widget secret |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Public widget site key |
-| `FIREBASE_PROJECT_ID` | Authentication project ID used by server verification |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Same authentication project ID |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | Public Firebase Web app key, never the Gemini key |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Default `PROJECT.firebaseapp.com` value |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase Web app appId |
-| `ALLOWED_EMAILS` | Your Google email during acceptance testing; optional comma-separated invite list |
-| `ALLOWED_COUNTRIES` | `MY` initially; explicit comma-separated ISO country codes, no spaces |
-| `USER_ANALYSES_PER_MINUTE` | `2` |
-| `USER_ANALYSES_PER_DAY` | `5` |
-| `SITE_ANALYSES_PER_DAY` | `20` |
-| `QUOTA_NAMESPACE` | `threadmark:production:v1`; keep stable |
+| `RATE_LIMIT_SECRET` | At least 32 random characters, generated once and kept stable |
+| `PUBLIC_OPERATOR_NAME` | Your name |
+| `PUBLIC_CONTACT_EMAIL` | A real contact email displayed on policy pages |
+| `ANALYSIS_ENABLED` | `true` when configured |
+| `RELEASE_READY` | `true` after reviewing the settings and privacy notice |
 
-Blank `ALLOWED_EMAILS` permits any eligible verified Google account. Changing that is a deliberate launch decision. Do not set `GEMINI_DATA_MODE=paid` merely to bypass regional restrictions; the actual project must have the required active billing configuration. Budget alerts are not guaranteed spending stops.
+Generate the rate-limit secret locally and paste it only into Vercel:
 
-The release defaults to Malaysia. Confirm every added country is supported by Gemini. Unpaid mode additionally rejects EEA, Switzerland and UK traffic even if mistakenly allowlisted. Country checks use Vercel ingress headers and are not reliable proof of residency; VPNs can obscure location. The code does not support untrusted forwarding proxies or non-Vercel production hosting without a new trust-boundary review.
-
-Live access is intended for adults in a professional/business demonstration. Age confirmation is self-attestation, not identity-based age verification. Google's terms also restrict services likely to be accessed by minors; an age checkbox alone does not settle suitability. Review intended audience, region and data use before release.
-
-Reference: https://ai.google.dev/gemini-api/terms and https://ai.google.dev/gemini-api/docs/available-regions.
-
-## 8. Platform protections
-
-Configure Vercel firewall controls for `POST /api/analyze` before opening access. Where the plan supports it, start with a per-IP rate limit such as 10 requests/minute and tune it for shared networks. Enable available bot/DDoS protections, monitor traffic and retain appropriate platform logs. Application quotas do not protect static pages or prevent function/Redis traffic costs under flooding.
-
-Review Vercel usage and spending controls, Google project quotas, Firebase limits and Upstash limits. Use a dedicated Gemini key/project so unrelated applications do not bypass this app's budget accounting. Restrict Gemini API permissions where supported. Enable account MFA and keep credentials out of browser variables and source.
-
-Review Deployment Protection separately: keep Preview deployments protected, and allow intended public visitors to reach Production without a Vercel team login. Google sign-in inside Threadmark is separate from Vercel deployment access.
-
-## 9. Hosted acceptance checks
-
-Keep `ALLOWED_EMAILS` restricted to test accounts. Save variables, set both enablement flags to `true`, and redeploy. A live build fails if required settings are missing. Then:
-
-- Verify all policy pages show the correct operator and monitored email, and that the selected Gemini data-use notice matches actual billing.
-- Sign in with an authorised Google account. Confirm a second uninvited account is denied if the allowlist is set.
-- Complete consent and Turnstile; analyse a short fictional conversation and inspect its citations.
-- Confirm an unauthenticated request, false/missing consent, invalid bot token and unsupported country cannot reach Gemini.
-- Check 429/Retry-After responses when limits are reached. Failed provider attempts should still consume allowance.
-- Test account deletion, then verify the old account session is refused. Do not use the operator's sole administrative identity as the deletion test account.
-- Test emergency pause below. Confirm previews never analyse.
-- Inspect browser network responses and bundles for absence of Gemini/Redis/Turnstile server secrets. Public Firebase configuration and the user's own ID token are expected.
-- Check mobile layout, keyboard navigation, blocked-popup behavior and restrictive browser privacy settings.
-
-Do not remove the email allowlist until these checks pass. Automated mocked tests do not replace this stage.
-
-## 10. Pause, block and recover
-
-In the Upstash console, stop new admissions immediately:
-
-```text
-SET threadmark:production:v1:disabled 1
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Resume with `DEL threadmark:production:v1:disabled`. Already-running model calls may finish. Setting `ANALYSIS_ENABLED=false` and redeploying also disables new deployment requests; the shared Redis switch covers older deployments using the same namespace.
+Only the Turnstile **site** key uses `NEXT_PUBLIC_`. Gemini, Redis, Turnstile secret and rate-limit secret must remain server-only. Do not share screenshots containing these values.
 
-To block an account, obtain its Firebase UID, compute its SHA-256 hex hash locally, and set `threadmark:production:v1:blocked:HASH` to `1`. Delete that key to unblock. Do not put a raw email or UID into public logs. Firebase disabled/deleted/revoked account state is also checked on each analysis.
+For **Preview**, set `ANALYSIS_ENABLED=false` and `RELEASE_READY=false`. Preview builds are example-only and should not receive production service secrets.
 
-If a secret is exposed: pause, revoke/rotate the affected credential, update Vercel, redeploy and review history/log exposure. Remove exposed Git history using an appropriate reviewed process; do not assume a deletion commit erases it. Review privacy incidents and applicable notification obligations with qualified advice when needed.
+## 3. Choose public limits
 
-## Operator responsibilities
+| Variable | Default | Maximum accepted |
+| --- | --- | --- |
+| `VISITOR_ANALYSES_PER_MINUTE` | 2 | 10 |
+| `VISITOR_ANALYSES_PER_DAY` | 5 | 100 |
+| `SITE_ANALYSES_PER_DAY` | 20 | 1,000 |
+| `SITE_CONCURRENT_ANALYSES` | 3 | 20 |
+| `QUOTA_NAMESPACE` | `threadmark:production:v1` | Keep stable across deployments |
+| `ALLOWED_COUNTRIES` | Empty | Optional comma-separated ISO country codes |
 
-The included policies describe the implemented data flow; they are not a legal compliance certification. Confirm operator identity, contact handling, provider contracts, cross-border processing, retention, deletion and incident response for the actual deployment. Malaysian commercial personal-data processing may trigger PDPA duties; use the bilingual notice as a starting implementation, not a substitute for assessing applicability.
+An empty `ALLOWED_COUNTRIES` removes the former Malaysia-only allowlist. The existing unpaid-mode restriction for EEA/UK/Switzerland remains. To enable those regions, use a Google project covered by paid-service terms and set `GEMINI_DATA_MODE=paid`. This setting declares your configuration; it does not enable billing or make an unavailable model/region available.
 
-Review artwork ownership and choose a source-code licence before granting reuse rights. A public GitHub repository is not automatically open source. No open-source licence has been added on the owner's behalf.
+Daily allowances reset at midnight UTC, 8 a.m. in Malaysia. Visitors sharing an IP address share the allowance. IPv6 addresses use a /64 network bucket. Do not change the namespace or rotate the secret just to clear quotas.
+
+The daily cap counts attempts, not tokens or money. Configure Google-side usage quotas and billing alerts, and review Vercel spend controls independently.
+
+## 4. Remove Vercel's login wall
+
+Application sign-in and Vercel Authentication are separate controls. This version removes application sign-in in code.
+
+1. Open the Threadmark project in Vercel.
+2. Open **Deployment Protection** in the project sidebar (some dashboard layouts place it under Settings or Security).
+3. Under **Vercel Authentication**, turn protection off and save to make all deployment URLs public. Alternatively, choose a protection scope that excludes your production domain if you want previews protected.
+4. Check that Password Protection and Trusted IP restrictions are not protecting the public URL.
+5. Share the stable production domain, not an old deployment URL, and open it in an incognito window while logged out of Vercel.
+
+Disabling deployment protection also exposes any old deployment URLs in that scope. Review/remove obsolete deployments with unsafe code or settings before opening all URLs. Prefer keeping previews protected when the available scope permits public production.
+
+## 5. Add edge protection and redeploy
+
+In the project's Firewall area, add a rate-limit rule matching `POST /api/analyze`, keyed by IP, with a starting threshold of 10 requests per 60 seconds and a 429 response. Availability and pricing depend on your plan. This rejects excess traffic before it invokes the function. Keep Vercel's platform DDoS protection enabled.
+
+Application rate limiting still invokes Redis for rejected requests and cannot by itself prevent network floods or all hosting charges. Do not describe this as DDoS-proof.
+
+Redeploy after updating environment variables. The public site key and public settings are baked into the build, so changing values without redeploying is insufficient.
+
+## 6. Hosted smoke check
+
+- In incognito, open the stable public URL. No Google or Vercel login should appear.
+- Open the example, expand source messages, filter next steps and export.
+- Submit fictional text with the three confirmations and a real Turnstile check. Verify a complete brief appears.
+- Check a second simultaneous submission from the same network is refused, and the minute/day limits return 429 with `Retry-After`.
+- Check the production browser network panel: only `/api/analyze` handles analysis, with no Gemini key or Authorization bearer token in its request.
+- Confirm Redis failure prevents Gemini calls, then restore Redis configuration and redeploy. Perform outage testing on an isolated production test project, not your public service.
+
+No cloud credentials are needed for offline tests. Real provider integration, deployed header behavior and project-specific quotas must still be checked on Vercel.
+
+## Local live development
+
+Use `.env.local`, `APP_ORIGIN=http://127.0.0.1:3000`, real service configuration and a Turnstile widget permitted for local development. `npm run dev` groups local visitors into one loopback bucket. Public Turnstile testing keys deliberately cannot enable live Gemini requests. Use an isolated Redis namespace for development and never commit `.env.local`.
+
+## References
+
+- [Vercel Authentication](https://vercel.com/docs/deployment-protection/methods-to-protect-deployments/vercel-authentication)
+- [Vercel request headers](https://vercel.com/docs/headers/request-headers)
+- [Vercel rate limiting](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting)
+- [Gemini Interactions](https://ai.google.dev/gemini-api/docs/interactions-overview)
+- [Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output)

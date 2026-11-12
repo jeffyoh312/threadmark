@@ -7,11 +7,7 @@ const REQUIRED = [
   "GEMINI_MODEL",
   "UPSTASH_REDIS_REST_URL",
   "UPSTASH_REDIS_REST_TOKEN",
-  "FIREBASE_PROJECT_ID",
-  "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-  "NEXT_PUBLIC_FIREBASE_API_KEY",
-  "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-  "NEXT_PUBLIC_FIREBASE_APP_ID",
+  "RATE_LIMIT_SECRET",
   "TURNSTILE_SECRET_KEY",
   "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
   "PUBLIC_CONTACT_EMAIL",
@@ -26,24 +22,14 @@ export function configurationIssues(env: Environment = process.env) {
   const issues = REQUIRED.filter((name) => !env[name]?.trim());
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(env.PUBLIC_CONTACT_EMAIL || ""))
     issues.push("PUBLIC_CONTACT_EMAIL (valid address)");
-  if (env.FIREBASE_PROJECT_ID !== env.NEXT_PUBLIC_FIREBASE_PROJECT_ID)
-    issues.push("FIREBASE_PROJECT_ID (must match browser project)");
   if (!["paid", "unpaid"].includes(env.GEMINI_DATA_MODE || ""))
     issues.push("GEMINI_DATA_MODE");
+  if ((env.RATE_LIMIT_SECRET || "").length < 32)
+    issues.push("RATE_LIMIT_SECRET (at least 32 random characters)");
   if (
-    env.GEMINI_API_KEY &&
-    env.GEMINI_API_KEY === env.NEXT_PUBLIC_FIREBASE_API_KEY
+    env.ALLOWED_COUNTRIES &&
+    !/^[A-Z]{2}(,[A-Z]{2})*$/.test(env.ALLOWED_COUNTRIES)
   )
-    issues.push("GEMINI_API_KEY (must differ from public Firebase key)");
-  if (
-    !/^[a-z0-9-]+\.firebaseapp\.com$/.test(
-      env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
-    )
-  )
-    issues.push(
-      "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN (use Firebase's default auth domain)",
-    );
-  if (!/^[A-Z]{2}(,[A-Z]{2})*$/.test(env.ALLOWED_COUNTRIES || "MY"))
     issues.push("ALLOWED_COUNTRIES (ISO codes)");
   if (
     /^[123]x000000/.test(env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "") ||
@@ -81,7 +67,7 @@ export function publicSettings(env: Environment = process.env) {
       : "",
     dataMode:
       env.GEMINI_DATA_MODE === "paid" ? ("paid" as const) : ("unpaid" as const),
-    countries: (env.ALLOWED_COUNTRIES || "MY").split(","),
+    countries: (env.ALLOWED_COUNTRIES || "").split(",").filter(Boolean),
   };
 }
 export type PublicSettings = ReturnType<typeof publicSettings>;
@@ -106,7 +92,9 @@ export function validateRelease(
   if (env.NODE_ENV !== "development") {
     const country = request.headers.get("x-vercel-ip-country") || "";
     if (
-      !(env.ALLOWED_COUNTRIES || "MY").split(",").includes(country) ||
+      (!!env.ALLOWED_COUNTRIES &&
+        !env.ALLOWED_COUNTRIES.split(",").includes(country)) ||
+      !/^[A-Z]{2}$/.test(country) ||
       (env.GEMINI_DATA_MODE !== "paid" && PAID_ONLY.has(country))
     )
       throw new RequestFailure(

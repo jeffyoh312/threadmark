@@ -40,7 +40,7 @@ test("public policy and account pages are accessible without login", async ({
   for (const [path, title] of [
     ["/privacy", "Privacy Notice"],
     ["/terms", "Terms of Use"],
-    ["/account", "Account & deletion"],
+    ["/account", "Data & deletion"],
     ["/accessibility", "Accessibility"],
   ]) {
     const response = await page.goto(path);
@@ -63,15 +63,13 @@ test("imported markup remains text and oversize input cannot analyse", async ({
   page,
 }) => {
   await page.goto("/");
-  await page
-    .getByLabel("Import a text file")
-    .setInputFiles({
-      name: "example.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from(
-        "Customer: <img src=x onerror=alert(1)> Please send a fictional invoice.",
-      ),
-    });
+  await page.getByLabel("Import a text file").setInputFiles({
+    name: "example.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      "Customer: <img src=x onerror=alert(1)> Please send a fictional invoice.",
+    ),
+  });
   await expect(page.getByRole("textbox")).toHaveValue(/<img src=x/);
   expect(await page.locator("img[src=x]").count()).toBe(0);
   await page.getByRole("textbox").fill("x".repeat(20001));
@@ -94,4 +92,37 @@ test("closed endpoint and environment paths do not expose secrets", async ({
   const page = await request.get("/");
   expect(page.headers()["x-content-type-options"]).toBe("nosniff");
   expect(page.headers()["x-frame-options"]).toBe("DENY");
+});
+
+test("brief filters, source messages and mobile layout stay understandable", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByText("No account needed")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Sign in/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Explore an example" }).click();
+  await page.getByRole("button", { name: /Next steps/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Next steps", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Decisions", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText("No date given").first()).toBeVisible();
+  await page.getByRole("button", { name: "Everything" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Decisions", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Edit conversation" }).click();
+  await page
+    .getByRole("textbox")
+    .fill("Customer: A completely different conversation.");
+  await expect(
+    page.getByRole("button", { name: "Back to report" }),
+  ).toHaveCount(0);
 });

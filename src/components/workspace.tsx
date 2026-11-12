@@ -1,13 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { ReportView } from "./report-view";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { PublicSettings } from "@/lib/server/release";
 import { POLICY_VERSION } from "@/lib/policy";
 import { Verification } from "@/components/verification";
 import { SiteFooter } from "@/components/site-footer";
-import { useAuth } from "@/lib/use-auth";
 import type { ChangeEvent } from "react";
 import { z } from "zod";
 import { MAX_CONVERSATION_CHARACTERS, reportSchema } from "@/lib/report-schema";
@@ -20,23 +20,13 @@ const responseSchema = z.object({
   ),
 });
 const errorSchema = z.object({ error: z.string() });
-type AnalysisResult = z.infer<typeof responseSchema>;
-type Finding = AnalysisResult["report"]["findings"][number];
-type Category = Finding["category"];
+export type AnalysisResult = z.infer<typeof responseSchema>;
 
 const MIN_CHARACTERS = 20;
 const MAX_FILE_BYTES = 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 120_000;
-const CATEGORY_LABELS: Record<Category, string> = {
-  summary: "Summary",
-  goal: "Goals",
-  decision: "Decisions",
-  action: "Actions",
-  date: "Dates",
-  open_question: "Open questions",
-};
 const secondaryButton =
-  "rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50/50 disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-teal-200 hover:bg-teal-50/50 disabled:cursor-not-allowed disabled:opacity-50";
 
 // The offline example uses the same response shape as live analysis.
 const SAMPLE_LINES = [
@@ -123,325 +113,7 @@ const SAMPLE_RESULT: AnalysisResult = {
   sources: SAMPLE_LINES.map((text, index) => ({ id: index + 1, text })),
 };
 
-// Export includes the source snapshot, independent of the active display filter.
-function downloadReport(result: AnalysisResult, isExample: boolean) {
-  const sections = result.report.findings.map((finding) =>
-    [
-      `## ${CATEGORY_LABELS[finding.category]}`,
-      finding.text,
-      `Status: ${finding.status.replace(/_/g, " ")}`,
-      `Owner: ${finding.owner ?? "Not specified"}`,
-      `Due: ${finding.due ?? "Not specified"}`,
-      `Source lines: ${finding.evidenceLineIds.join(", ")}`,
-    ].join("\n\n"),
-  );
-  const markdown = [
-    `# ${result.report.title}`,
-    isExample
-      ? "> Predefined example. Not live AI analysis."
-      : "> AI-generated report. Verify findings against the source lines.",
-    ...sections,
-    "## Source lines",
-    ...result.sources.map((line) => `${line.id}: ${line.text}`),
-  ].join("\n\n");
-  const url = URL.createObjectURL(
-    new Blob([markdown], {
-      type: "text/markdown;charset=utf-8",
-    }),
-  );
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = isExample ? "threadmark-example.md" : "threadmark-report.md";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-// Evidence stays attached to each finding and uses the returned source snapshot.
-function Evidence({
-  finding,
-  sources,
-}: {
-  finding: Finding;
-  sources: AnalysisResult["sources"];
-}) {
-  return (
-    <details className="tm-reveal mt-3">
-      <summary className="w-fit cursor-pointer text-xs font-medium text-indigo-500 transition hover:text-indigo-700">
-        View source{" "}
-        <span className="ml-1 text-indigo-300">
-          · {finding.evidenceLineIds.length}
-        </span>
-      </summary>
-      <div className="tm-evidence mt-3 space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
-        {Array.from(new Set(finding.evidenceLineIds)).map((id) => (
-          <blockquote
-            key={id}
-            className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-600"
-          >
-            <span className="mr-2 text-xs font-semibold text-indigo-500">
-              {id}
-            </span>
-            {sources.find((line) => line.id === id)?.text}
-          </blockquote>
-        ))}
-      </div>
-    </details>
-  );
-}
-
-// Confirmed findings need no badge; exceptions remain explicit without implying completion.
-function FindingStatus({ finding }: { finding: Finding }) {
-  if (finding.status === "confirmed") return null;
-  return (
-    <span className="mb-2 inline-block rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500">
-      {finding.status.replace(/_/g, " ")}
-    </span>
-  );
-}
-
-function ReportView({
-  result,
-  isExample,
-}: {
-  result: AnalysisResult;
-  isExample: boolean;
-}) {
-  const { report, sources } = result;
-  const inCategory = (category: Category) =>
-    report.findings.filter((finding) => finding.category === category);
-  const summaries = inCategory("summary");
-  const decisions = inCategory("decision");
-  const actions = inCategory("action");
-  const questions = inCategory("open_question");
-  const goals = inCategory("goal");
-  const dates = inCategory("date");
-  // Revisions remain in the model's supported text; no old/new values are inferred here.
-  return (
-    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <header className="border-b border-slate-100 px-6 pb-8 pt-8 sm:px-10 sm:pt-10">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-500">
-            {isExample ? "Example brief" : "Conversation brief"}
-          </p>
-          <button
-            type="button"
-            onClick={() => downloadReport(result, isExample)}
-            className={secondaryButton}
-          >
-            Export brief <span aria-hidden="true">↓</span>
-          </button>
-        </div>
-        <h1 className="max-w-3xl break-words text-2xl font-semibold leading-tight tracking-tight sm:text-4xl">
-          {report.title}
-        </h1>
-        <p className="mt-4 text-xs leading-6 text-slate-400">
-          {isExample
-            ? "Predefined example. No AI request was made."
-            : "AI-generated. Check the supporting sources before relying on a finding."}
-        </p>
-        {report.findings.length > 0 && (
-          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-500">
-            <span>{decisions.length} decisions</span>
-            <span>{actions.length} actions</span>
-            <span>{questions.length} open questions</span>
-          </div>
-        )}
-      </header>
-      <div className="px-6 py-8 sm:px-10 sm:py-10">
-        {report.findings.length === 0 && (
-          <p className="text-sm text-slate-500">
-            No supported findings were returned for this conversation.
-          </p>
-        )}
-        {summaries.length > 0 && (
-          <section aria-labelledby="summary-title" className="mb-10 max-w-3xl">
-            <h2
-              id="summary-title"
-              className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400"
-            >
-              At a glance
-            </h2>
-            <div className="space-y-5">
-              {summaries.map((finding, index) => (
-                <div key={index}>
-                  <FindingStatus finding={finding} />
-                  <p className="whitespace-pre-wrap break-words text-base leading-8 text-slate-600 sm:text-lg">
-                    {finding.text}
-                  </p>
-                  <Evidence finding={finding} sources={sources} />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-        <div
-          className={`grid items-start gap-10 ${questions.length || dates.length ? "lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]" : "max-w-3xl"}`}
-        >
-          <div className="min-w-0 space-y-10">
-            {decisions.length > 0 && (
-              <section aria-labelledby="decisions-title">
-                <h2
-                  id="decisions-title"
-                  className="mb-5 text-lg font-semibold tracking-tight"
-                >
-                  Decisions
-                </h2>
-                <div className="space-y-6">
-                  {decisions.map((finding, index) => (
-                    <div
-                      key={index}
-                      className="border-l-2 border-indigo-200 pl-5"
-                    >
-                      <FindingStatus finding={finding} />
-                      <p className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-700">
-                        {finding.text}
-                      </p>
-                      <Evidence finding={finding} sources={sources} />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-            {actions.length > 0 && (
-              <section aria-labelledby="actions-title">
-                <h2
-                  id="actions-title"
-                  className="mb-2 text-lg font-semibold tracking-tight"
-                >
-                  Next steps
-                </h2>
-                <div className="divide-y divide-slate-100">
-                  {actions.map((finding, index) => (
-                    <div key={index} className="flex gap-4 py-5">
-                      <span
-                        aria-hidden="true"
-                        className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[11px] font-semibold text-indigo-500"
-                      >
-                        {index + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <FindingStatus finding={finding} />
-                        <p className="whitespace-pre-wrap break-words text-sm font-medium leading-7 text-slate-700">
-                          {finding.text}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs leading-5 text-slate-500">
-                          {finding.owner && <span>{finding.owner}</span>}
-                          {finding.due && <span>Due {finding.due}</span>}
-                        </div>
-                        <Evidence finding={finding} sources={sources} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-            {goals.length > 0 && (
-              <section aria-labelledby="goals-title">
-                <h2
-                  id="goals-title"
-                  className="mb-4 text-lg font-semibold tracking-tight"
-                >
-                  Goals
-                </h2>
-                <div className="space-y-5">
-                  {goals.map((finding, index) => (
-                    <div key={index}>
-                      <FindingStatus finding={finding} />
-                      <p className="break-words text-sm leading-7 text-slate-600">
-                        {finding.text}
-                      </p>
-                      <Evidence finding={finding} sources={sources} />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-          <div className="min-w-0 space-y-8">
-            {questions.length > 0 && (
-              <section
-                aria-labelledby="questions-title"
-                className="rounded-2xl bg-slate-50 p-5 sm:p-6"
-              >
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-500">
-                  Still to resolve
-                </p>
-                <h2
-                  id="questions-title"
-                  className="mb-5 text-base font-semibold"
-                >
-                  Open questions
-                </h2>
-                <div className="space-y-6">
-                  {questions.map((finding, index) => (
-                    <div key={index}>
-                      {finding.status !== "unresolved" && (
-                        <FindingStatus finding={finding} />
-                      )}
-                      <p className="break-words text-sm leading-7 text-slate-600">
-                        {finding.text}
-                      </p>
-                      <Evidence finding={finding} sources={sources} />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-            {dates.length > 0 && (
-              <section aria-labelledby="dates-title" className="px-1">
-                <h2 id="dates-title" className="mb-5 text-base font-semibold">
-                  Dates to keep in mind
-                </h2>
-                <div className="space-y-6">
-                  {dates.map((finding, index) => (
-                    <div key={index}>
-                      <FindingStatus finding={finding} />
-                      {finding.due && (
-                        <p className="mb-1 text-xs font-semibold text-indigo-600">
-                          {finding.due}
-                        </p>
-                      )}
-                      <p className="break-words text-sm leading-7 text-slate-600">
-                        {finding.text}
-                      </p>
-                      <Evidence finding={finding} sources={sources} />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-        </div>
-        <details className="tm-reveal mt-10 border-t border-slate-100 pt-6">
-          <summary className="cursor-pointer text-sm font-medium text-slate-500">
-            Source conversation{" "}
-            <span className="ml-2 text-xs font-normal text-slate-400">
-              {sources.length} lines
-            </span>
-          </summary>
-          <div className="tm-evidence mt-5 max-h-96 space-y-3 overflow-y-auto rounded-xl bg-slate-50 p-5">
-            {sources.map((line) => (
-              <p
-                key={line.id}
-                className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-600"
-              >
-                <span className="mr-3 text-xs text-slate-400">{line.id}</span>
-                {line.text}
-              </p>
-            ))}
-          </div>
-        </details>
-      </div>
-    </article>
-  );
-}
-
 export default function Workspace({ settings }: { settings: PublicSettings }) {
-  const auth = useAuth(settings.liveAvailable);
-  const [signingIn, setSigningIn] = useState(false);
-  const signInLocked = useRef(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [adultConfirmed, setAdultConfirmed] = useState(false);
   const [fictionalConfirmed, setFictionalConfirmed] = useState(false);
@@ -457,29 +129,21 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
     "idle",
   );
   const [notice, setNotice] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+  useEffect(() => {
+    if (!cooldown) return;
+    const timer = setTimeout(
+      () => setCooldown((seconds) => Math.max(0, seconds - 1)),
+      1000,
+    );
+    return () => clearTimeout(timer);
+  }, [cooldown]);
   const fileInput = useRef<HTMLInputElement>(null);
   // Prevent duplicate operations before the disabled controls re-render.
   const operationLocked = useRef(false);
 
-  const isBusy = activity !== "idle" || signingIn;
+  const isBusy = activity !== "idle";
 
-  async function signIn() {
-    if (signInLocked.current || !auth.ready || !settings.liveAvailable) return;
-    signInLocked.current = true;
-    setSigningIn(true);
-    setNotice("");
-    try {
-      await auth.login();
-    } finally {
-      signInLocked.current = false;
-      setSigningIn(false);
-    }
-  }
-
-  function handlePrimaryAction() {
-    if (!auth.user) void signIn();
-    else void analyzeConversation();
-  }
   const trimmedText = conversation.trim();
   const characterCount = trimmedText.length;
   const wordCount = trimmedText ? trimmedText.split(/\s+/).length : 0;
@@ -546,12 +210,12 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
   async function analyzeConversation() {
     if (
       operationLocked.current ||
+      cooldown > 0 ||
       !validLength ||
       !acceptedTerms ||
       !adultConfirmed ||
       !fictionalConfirmed ||
       !challengeToken ||
-      !auth.user ||
       !settings.liveAvailable
     )
       return;
@@ -569,7 +233,6 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${await auth.token()}`,
         },
         body: JSON.stringify({
           conversation: trimmedText,
@@ -590,6 +253,9 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
         );
       }
       if (!response.ok) {
+        const retryAfter = Number(response.headers.get("retry-after"));
+        if (Number.isFinite(retryAfter) && retryAfter > 0)
+          setCooldown(Math.min(86400, Math.ceil(retryAfter)));
         const failure = errorSchema.safeParse(data);
         throw new Error(
           failure.success
@@ -632,12 +298,12 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
   const showReport = result !== null && !isEditing;
 
   return (
-    <main className="tm-workspace min-h-screen bg-[#f7f8fa] font-sans text-slate-900">
+    <main className="tm-workspace min-h-screen bg-[#f5f7f6] font-sans text-slate-900">
       <style>{`
         .tm-enter { animation: tm-enter 380ms ease-out both; }
         .tm-reveal[open] > .tm-evidence { animation: tm-enter 220ms ease-out both; }
         .tm-pulse { animation: tm-pulse 1.8s ease-in-out infinite; }
-        .tm-workspace button:focus-visible, .tm-workspace summary:focus-visible { outline: 2px solid #6366f1; outline-offset: 4px; }
+        .tm-workspace button:focus-visible, .tm-workspace summary:focus-visible { outline: 2px solid #0f766e; outline-offset: 4px; }
         @keyframes tm-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes tm-pulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) {
@@ -659,56 +325,13 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                 priority
               />
             </div>
-            <span className="hidden rounded-md bg-indigo-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-indigo-600 sm:inline">
+            <span className="hidden rounded-md bg-teal-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-teal-600 sm:inline">
               Preview
             </span>
           </div>
-          <div className="flex max-w-xs flex-col items-end gap-1 text-xs text-slate-500">
-            {auth.configured ? (
-              <>
-                {auth.user && (
-                  <span className="max-w-44 truncate">{auth.user.email}</span>
-                )}
-                <button
-                  type="button"
-                  disabled={!auth.ready || isBusy}
-                  onClick={() => {
-                    if (auth.user) {
-                      void auth.logout();
-                      setResult(null);
-                      setConversation("");
-                    } else void signIn();
-                  }}
-                  className="rounded-lg bg-indigo-50 px-3 py-2 font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-50"
-                >
-                  {!auth.ready
-                    ? "Loading sign-in…"
-                    : auth.user
-                      ? "Sign out"
-                      : "Sign in with Google"}
-                </button>
-              </>
-            ) : (
-              <span>Example mode</span>
-            )}
-            {!auth.user && settings.liveAvailable && (
-              <p className="text-right text-[11px]">
-                For adults 18+.{" "}
-                <Link href="/privacy" className="underline">
-                  Privacy
-                </Link>{" "}
-                ·{" "}
-                <Link href="/terms" className="underline">
-                  Terms
-                </Link>
-              </p>
-            )}
-            {auth.authError && (
-              <span role="alert" className="text-right text-rose-600">
-                {auth.authError}
-              </span>
-            )}
-          </div>
+          <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-medium text-teal-800">
+            No account needed
+          </span>
         </div>
       </header>
 
@@ -753,15 +376,15 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
           <div className="tm-enter" key="editor">
             <div className="mb-9 flex flex-wrap items-end justify-between gap-5">
               <div>
-                <p className="mb-3 text-xs font-medium uppercase tracking-[0.16em] text-indigo-600">
-                  A little less noise
+                <p className="mb-3 text-xs font-medium uppercase tracking-[0.16em] text-teal-600">
+                  From chat to a clear plan
                 </p>
                 <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                  Find what matters.
+                  Long chat. Clear next steps.
                 </h1>
                 <p className="mt-3 max-w-lg text-sm leading-7 text-slate-500">
-                  Bring the decisions, commitments, and next steps out of your
-                  conversations.
+                  Paste a conversation. See what was agreed, who needs to do
+                  what, and what still needs an answer.
                 </p>
               </div>
               <button
@@ -780,14 +403,14 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
               >
                 <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-6 py-5">
                   <h2 id="source-heading" className="text-sm font-semibold">
-                    Your conversation
+                    1. Add your conversation
                   </h2>
                   {result && (
                     <button
                       type="button"
                       disabled={isBusy}
                       onClick={() => setIsEditing(false)}
-                      className="text-xs font-medium text-indigo-600"
+                      className="text-xs font-medium text-teal-600"
                     >
                       Back to report
                     </button>
@@ -826,7 +449,7 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                       <button
                         type="button"
                         onClick={() => fileInput.current?.click()}
-                        className="text-xs font-medium text-indigo-600"
+                        className="text-xs font-medium text-teal-600"
                       >
                         Import .txt <span aria-hidden="true">↑</span>
                       </button>
@@ -839,7 +462,7 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                     placeholder={
                       "Paste your conversation here…\n\nMaya: Can we agree on the project deadline?\nSara: Friday works for me."
                     }
-                    className="min-h-80 w-full resize-y rounded-xl border border-slate-200 bg-slate-50/40 p-4 text-sm leading-7 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50 disabled:opacity-60"
+                    className="min-h-80 w-full resize-y rounded-xl border border-slate-200 bg-slate-50/40 p-4 text-sm leading-7 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-50 disabled:opacity-60"
                   />
                   <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-slate-400">
                     <span>{wordCount.toLocaleString()} words</span>
@@ -854,9 +477,9 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                       {MAX_CONVERSATION_CHARACTERS.toLocaleString()} characters
                     </span>
                   </div>
-                  <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 text-xs leading-6 text-slate-600">
+                  <div className="mt-5 rounded-xl border border-teal-100 bg-teal-50/40 p-4 text-xs leading-6 text-slate-600">
                     <p className="font-semibold text-slate-800">
-                      Before creating a brief
+                      2. Check before you send
                     </p>
                     <p className="mt-1">
                       Use fictional or fully anonymised business conversations
@@ -871,7 +494,7 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                     )}
                     <label className="mt-3 flex items-start gap-2">
                       <input
-                        className="mt-1.5 accent-indigo-600"
+                        className="mt-1.5 accent-teal-600"
                         type="checkbox"
                         checked={adultConfirmed}
                         onChange={(e) => setAdultConfirmed(e.target.checked)}
@@ -880,7 +503,7 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                     </label>
                     <label className="mt-2 flex items-start gap-2">
                       <input
-                        className="mt-1.5 accent-indigo-600"
+                        className="mt-1.5 accent-teal-600"
                         type="checkbox"
                         checked={fictionalConfirmed}
                         onChange={(e) =>
@@ -895,7 +518,7 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                     </label>
                     <label className="mt-2 flex items-start gap-2">
                       <input
-                        className="mt-1.5 accent-indigo-600"
+                        className="mt-1.5 accent-teal-600"
                         type="checkbox"
                         checked={acceptedTerms}
                         onChange={(e) => setAcceptedTerms(e.target.checked)}
@@ -927,10 +550,6 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                         Live analysis is currently unavailable. Explore the
                         example without signing in.
                       </p>
-                    ) : !auth.user ? (
-                      <p className="mt-3 font-medium">
-                        Use the button below to sign in with Google. Your text stays here; after signing in, complete verification and create your brief.
-                      </p>
                     ) : (
                       <Verification
                         key={verificationKey}
@@ -940,33 +559,44 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                   </div>
                   <button
                     type="button"
-                    onClick={handlePrimaryAction}
+                    onClick={() => void analyzeConversation()}
                     disabled={
                       isBusy ||
+                      cooldown > 0 ||
                       !settings.liveAvailable ||
-                      !auth.ready ||
-                      (!!auth.user &&
-                        (!validLength ||
-                          !acceptedTerms ||
-                          !adultConfirmed ||
-                          !fictionalConfirmed ||
-                          !challengeToken))
+                      !validLength ||
+                      !acceptedTerms ||
+                      !adultConfirmed ||
+                      !fictionalConfirmed ||
+                      !challengeToken
                     }
-                    className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl bg-indigo-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
+                    className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl bg-teal-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
                   >
-                    {signingIn
-                      ? "Opening Google sign-in…"
-                      : activity === "analyzing"
-                        ? "Analyzing conversation…"
-                        : activity === "importing"
-                          ? "Reading file…"
-                          : settings.liveAvailable && !auth.ready
-                            ? "Loading sign-in…"
-                            : settings.liveAvailable && !auth.user
-                              ? "Sign in with Google to create a brief"
-                              : "Create conversation brief"}
+                    {activity === "analyzing"
+                      ? "Reading your conversation…"
+                      : activity === "importing"
+                        ? "Reading file…"
+                        : cooldown > 0
+                          ? `Try again in ${cooldown}s`
+                          : "Create conversation brief"}
                     <span aria-hidden="true">→</span>
                   </button>
+                  <p
+                    className="mt-3 text-xs leading-5 text-slate-600"
+                    aria-live="polite"
+                  >
+                    {!settings.liveAvailable
+                      ? "Try the example while live analysis is paused."
+                      : !validLength
+                        ? "Add at least 20 characters to get started."
+                        : !acceptedTerms ||
+                            !adultConfirmed ||
+                            !fictionalConfirmed
+                          ? "Tick the three checkboxes above to continue."
+                          : !challengeToken
+                            ? "Complete the bot check above to continue."
+                            : "Ready. Your text is sent only when you create the brief."}
+                  </p>
                   <p className="mt-3 text-xs leading-5 text-slate-400">
                     {MIN_CHARACTERS}–
                     {MAX_CONVERSATION_CHARACTERS.toLocaleString()} characters.
@@ -984,10 +614,10 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
               </section>
               <aside className="py-3 lg:pl-3">
                 {activity === "analyzing" ? (
-                  <div className="tm-enter rounded-2xl border border-indigo-100 bg-white p-7">
+                  <div className="tm-enter rounded-2xl border border-teal-100 bg-white p-7">
                     <span
                       aria-hidden="true"
-                      className="tm-pulse mb-6 block h-10 w-10 rounded-xl bg-indigo-100"
+                      className="tm-pulse mb-6 block h-10 w-10 rounded-xl bg-teal-100"
                     />
                     <h2 className="text-lg font-semibold tracking-tight">
                       Making sense of the conversation.
@@ -1005,27 +635,27 @@ export default function Workspace({ settings }: { settings: PublicSettings }) {
                 ) : (
                   <div>
                     <p className="mb-6 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
-                      From conversation to clarity
+                      Your brief, made simple
                     </p>
                     {[
                       [
                         "01",
-                        "The important context",
-                        "A concise overview of what the conversation is about.",
+                        "What was agreed?",
+                        "See decisions separately from ideas that nobody confirmed.",
                       ],
                       [
                         "02",
-                        "Decisions & next steps",
-                        "What was agreed, what needs doing, and who is involved.",
+                        "Who does what next?",
+                        "Tasks, names and deadlines in one place. Missing details stay visible.",
                       ],
                       [
                         "03",
-                        "A source for every finding",
-                        "Open the original lines whenever you need to check the details.",
+                        "Where did that come from?",
+                        "Open the original message below any finding to check it yourself.",
                       ],
                     ].map(([number, title, detail]) => (
                       <div key={number} className="mb-7 flex gap-4">
-                        <span className="pt-1 text-xs font-medium text-indigo-400">
+                        <span className="pt-1 text-xs font-medium text-teal-400">
                           {number}
                         </span>
                         <div>

@@ -1,35 +1,38 @@
-# Security
+# Security model
 
-Report vulnerabilities privately to the operator contact on the deployed `/privacy` page, or through GitHub private vulnerability reporting when enabled. Do not publish credentials, user data or exploit instructions in a public issue before coordinated review. Code inspection and local testing are welcome; disruptive testing against the hosted demo is not authorised.
+Threadmark is an anonymous public demo. No account, cookie identifier or browser-provided user ID is trusted for quotas.
 
-## Threat model
+## Admission to Gemini
 
-The browser and every supplied request field are untrusted. An attacker can inspect the public source, send requests without the interface, obtain a Google account, replay a token, alter consent fields or try to flood the endpoint. Firebase, Vercel ingress, Upstash, Cloudflare and Google Gemini are external trust dependencies. Compromised operator accounts, a compromised dependency and unrestricted provider billing remain operational risks.
+1. Deployment flags, exact origin, content type and regional policy are checked.
+2. On production Vercel, `x-vercel-forwarded-for` supplies the network identity. Generic `x-forwarded-for` and Authorization headers are ignored. Missing or malformed platform IPs fail closed. Development uses loopback.
+3. IPv6 addresses are grouped by /64; mapped IPv4 is normalized. A stable secret HMAC produces the Redis identifier. Raw IPs are not persisted by application code.
+4. Shared Redis Lua ingress checks run before body parsing and Turnstile. They admit 10 requests/network/minute and 120 requests/site/minute. Malformed JSON counts toward ingress, but not the AI allowance.
+5. Actual streamed bytes, upload duration, consent, policy version and text length are checked.
+6. Turnstile success, hostname and action are verified server-side. Production test keys are prohibited.
+7. One atomic Lua reservation checks visitor minute/day caps, site day cap, pause/block flags, and visitor/site concurrency before any Gemini request.
+8. Gemini uses server-only credentials, a separate system instruction, structured JSON, no tools, `store:false`, zero automatic retries, a timeout and bounded output. Completed status, JSON schema and citation existence are validated before returning results.
 
-## Implemented boundaries
+Network quotas default to 2/minute and 5/UTC day. The site defaults to 20 attempts/UTC day and 3 active analyses. Requests that reach Gemini are not refunded on failure. Daily counters expire within 48 hours; locks last 120 seconds. Shared active slots expire by score after 120 seconds and their set expires after 240 seconds. A stale release cannot delete a replacement lock or another request's slot.
 
-- Gemini, Redis and Turnstile server secrets are read only by server-only modules. Browser configuration is limited to public Firebase/Turnstile identifiers.
-- Live analysis requires explicit enablement, complete configuration, operator readiness, the exact configured origin and an allowed country. Preview and non-Vercel production deployments are denied.
-- Request bodies are bounded by actual streamed bytes, not just Content-Length. JSON schema validation enforces character limits, exact consent version and affirmative confirmations. Upload reads time out.
-- A shared Redis ingress ceiling precedes external authentication and bot-verification calls. It does not replace an edge firewall and itself still costs Redis traffic.
-- Firebase JWT signature, issuer, audience, expiry, identity claims, verified email and Google provider are checked. Current account lookup rejects deleted/disabled accounts and revoked sessions. Network verification failure blocks analysis.
-- Turnstile verification occurs on the server and checks hostname and action. Client-only challenge state is insufficient.
-- Atomic Redis reservations enforce user and site allowances and a single active user lease. Provider failures consume allowance. Redis failures stop processing. Release checks lease ownership, preventing an old request from removing a newer lock.
-- Gemini has a 90-second timeout, no automatic retries and a 2,048-token output bound. It receives no external tools or privileged application actions.
-- Output is schema-checked, citation IDs must exist, and React renders supplied text without raw HTML. Exported Markdown remains untrusted text and should not be rendered with unsafe HTML enabled.
-- Responses containing reports or errors use `no-store`. Upstream exceptions and conversation bodies are not logged by application code or returned verbatim.
-- Response headers restrict framing, MIME sniffing, object embedding, permissions and network/script destinations. The CSP permits inline scripts/styles for Next.js rendering, so it is not a nonce-based strict CSP and is not an independent XSS guarantee.
+## Boundaries
 
-## Limits and maintenance
+Origin checks are not authentication. Bots can forge Origin headers, solve challenges and rotate networks. Shared-network visitors can exhaust each other's allowance. A distributed attacker may consume the site's daily allowance and deny live analysis to others; the prepared example remains available. These limits prioritize bounded AI usage over guaranteed availability.
 
-Authentication cannot establish benevolent intent. Multiple accounts can exhaust the shared allowance. Fixed-window limits admit bursts around boundaries. Floods can consume infrastructure even when Gemini is never called. No guarantee of crash resistance, zero spending or immunity from key compromise is made.
+The controls do not prevent all function/Redis charges or provide a penetration-test guarantee. Use Vercel's edge firewall for traffic before functions, and Google-side quotas and billing controls for provider usage. Never expose production functions outside Vercel while trusting its headers.
 
-Region checks rely on trusted Vercel ingress and IP-derived location; VPNs can evade geographic intent. Age is self-attested, not verified. The operator must assess provider rules and audience suitability before setting `RELEASE_READY=true`.
+Do not disable Redis or Turnstile validation to repair an outage. Live analysis fails closed when guards are unavailable. Preview deployments cannot run live analysis.
 
-The model may misinterpret a conversation or cite a real but irrelevant line. Input is labelled untrusted in the prompt, but prompts alone do not eliminate prompt injection. Schema/reference validation checks structure, not truth. Results require human review.
+## Keys and logs
 
-All signed-in tokens are bearer credentials. In-memory browser storage reduces persistence but does not defeat malicious browser extensions or XSS. Sign-out is not global revocation. Firebase account state is checked per analysis, and an in-flight call may complete after deletion/blocking.
+Store secrets only in private local/Vercel environment variables. Only `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is public. The Gemini key is never sent to the browser or included in provider error responses. Logs include controlled stages and numeric statuses, not request bodies, tokens or provider exception messages. CSP no longer permits Firebase/Google authentication scripts or frames.
 
-Use MFA, restrict credential scopes, patch dependencies and review deployments. Scan Git history before publishing. The included scanner is heuristic and cannot identify every secret format. Public Firebase keys may also match its conservative patterns; configure them through environment settings instead of hardcoding them.
+Run `npm run security:check` inside the Git repository before pushing. It heuristically scans working files, the index and locally available history. It is not a guarantee that every possible credential is detected. If a key was exposed, revoke and replace it; merely deleting the file is insufficient.
 
-Use the [deployment runbook](docs/DEPLOYMENT.md) for pause, credential rotation, blocking and hosted checks. See [validation](docs/VALIDATION.md) for test results and remaining advisory details. The source is not a penetration-test or legal-compliance certification.
+## Emergency pause
+
+Set `<QUOTA_NAMESPACE>:disabled` to `1` in Redis to stop admission without a build. Remove it after investigating. To disable the feature persistently, set `ANALYSIS_ENABLED=false` in Vercel and redeploy. Redis blocking records use `<QUOTA_NAMESPACE>:blocked:<visitor HMAC>` and remain until manually removed. Do not log raw IP addresses to build block lists.
+
+## Reporting
+
+Contact the operator shown on the hosted privacy page. Do not post credentials or private conversation text in public issues, and do not load-test the public demo without permission.

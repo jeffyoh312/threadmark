@@ -24,8 +24,8 @@ const inputSchema = z
   .strict();
 type Dependencies = {
   env: Record<string, string | undefined>;
-  ingress: () => Promise<void>;
-  identity: (request: Request) => Promise<{ userId: string }>;
+  ingress: (visitorId: string) => Promise<void>;
+  identity: (request: Request) => Promise<{ visitorId: string }>;
   challenge: (token: string) => Promise<void>;
   reserve: (uid: string) => Promise<() => Promise<void>>;
   generate: (sources: SourceLine[]) => Promise<unknown>;
@@ -49,20 +49,21 @@ export async function analyze(request: Request, deps: Dependencies) {
       vercelEnvironment: deps.env.VERCEL_ENV,
     });
     validateRelease(request, deps.env);
+    stage = "identity";
+    const identity = await deps.identity(request);
+    stage = "ingress";
+    await deps.ingress(identity.visitorId);
+    stage = "request";
     const input = inputSchema.safeParse(await readLimitedJson(request));
     if (!input.success)
       throw new RequestFailure(
         400,
-        `Provide 20–${MAX_CONVERSATION_CHARACTERS.toLocaleString()} characters and complete all consent and verification steps.`,
+        `Paste 20–${MAX_CONVERSATION_CHARACTERS.toLocaleString()} characters and complete the checkboxes and bot check.`,
       );
-    stage = "ingress";
-    await deps.ingress();
-    stage = "identity";
-    const identity = await deps.identity(request);
     stage = "verification";
     await deps.challenge(input.data.challengeToken);
     stage = "quota";
-    release = await deps.reserve(identity.userId);
+    release = await deps.reserve(identity.visitorId);
     const sources = input.data.conversation
       .replace(/\r\n?/g, "\n")
       .split("\n")
@@ -97,7 +98,9 @@ export async function analyze(request: Request, deps: Dependencies) {
         ? Number(rawStatus)
         : 0;
     const status =
-      Number.isInteger(numericStatus) && numericStatus >= 400 && numericStatus <= 599
+      Number.isInteger(numericStatus) &&
+      numericStatus >= 400 &&
+      numericStatus <= 599
         ? numericStatus
         : 0;
     // Log only controlled stages and HTTP codes. Provider messages can contain
@@ -106,7 +109,8 @@ export async function analyze(request: Request, deps: Dependencies) {
       console.error("[threadmark:analysis]", {
         stage,
         upstreamStatus: status || null,
-        category: error instanceof SyntaxError ? "invalid_json" : "request_failed",
+        category:
+          error instanceof SyntaxError ? "invalid_json" : "request_failed",
       });
     }
     if (error instanceof RequestFailure)
