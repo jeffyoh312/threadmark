@@ -413,7 +413,7 @@ button:disabled {
 }
 
 .section + .section {
-  margin-top: 36px;
+  margin-top: 44px;
 }
 
 .section h2 {
@@ -449,17 +449,12 @@ button:disabled {
 }
 
 .finding-button {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "status status lines"
-    "text text text"
-    "meta meta meta";
-  gap: 6px 12px;
-  width: 100%;
-  padding: 14px 12px;
-  margin-inline: -12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   width: calc(100% + 24px);
+  margin-inline: -12px;
+  padding: 16px 12px;
   border: 0;
   border-radius: var(--radius);
   background: none;
@@ -475,79 +470,83 @@ button:disabled {
   box-shadow: inset 3px 0 0 var(--mark);
 }
 
+.finding-text {
+  font-size: 1.02rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* One quiet line under each finding: status, who, when, and source lines. */
+.finding-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 18px;
+  font-size: 0.84rem;
+}
+
+/* Status is a coloured dot and label, not a badge, so it doesn't shout. */
 .status {
-  grid-area: status;
-  justify-self: start;
-  padding: 1px 8px;
-  border-radius: 999px;
-  font-size: 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-weight: 600;
+}
+
+.status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .status-confirmed {
   color: var(--agreed);
-  background: var(--agreed-bg);
 }
 
 .status-proposed {
   color: var(--suggested);
-  background: var(--suggested-bg);
 }
 
 .status-unresolved {
   color: var(--open);
-  background: var(--open-bg);
 }
 
 .status-reported_complete {
   color: var(--done);
-  background: var(--done-bg);
 }
 
 .status-superseded {
   color: var(--replaced);
-  background: var(--replaced-bg);
 }
 
 /* A replaced arrangement stays readable but clearly isn't current. */
-.status-superseded ~ .finding-text {
+.finding:has(.status-superseded) .finding-text {
   color: var(--faint);
   text-decoration: line-through;
   text-decoration-color: var(--faint);
 }
 
-.finding-text {
-  grid-area: text;
-  font-size: 1rem;
-  overflow-wrap: anywhere;
+.detail-label {
+  color: var(--faint);
+}
+
+.detail-value {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.detail-missing {
+  color: var(--faint);
+  font-style: italic;
 }
 
 .finding-lines {
-  grid-area: lines;
+  margin-left: auto;
   color: var(--faint);
   font-family: var(--mono);
   font-size: 0.75rem;
-  align-self: center;
-}
-
-.finding-meta {
-  grid-area: meta;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 0.85rem;
-}
-
-.finding-meta > span {
-  padding: 1px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--muted);
-}
-
-.finding-meta > .is-missing {
-  border-style: dashed;
-  color: var(--faint);
 }
 
 /* Inline quotes only matter when the transcript isn't beside the brief. */
@@ -590,7 +589,7 @@ button:disabled {
 .lines li {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
-  padding: 3px 18px 3px 0;
+  padding: 6px 18px 6px 0;
   transition: background-color 0.2s;
 }
 
@@ -602,6 +601,10 @@ button:disabled {
   line-height: 1.85;
   text-align: right;
   user-select: none;
+}
+
+.speaker {
+  font-weight: 650;
 }
 
 .line-text {
@@ -638,6 +641,12 @@ button:disabled {
     background: var(--mark);
     color: var(--mark-ink);
     font-size: 0.9rem;
+  }
+
+  .inline-quote li {
+    display: flex;
+    gap: 4px;
+    padding-block: 2px;
   }
 
   .inline-quote .line-number {

@@ -135,7 +135,7 @@ export function BriefView({ brief, isExample, remaining, onEdit, onStartOver }: 
                 <span className="line-number" aria-hidden="true">
                   {line.id}
                 </span>
-                <span className="line-text">{line.text}</span>
+                <LineText text={line.text} />
               </li>
             ))}
           </ol>
@@ -161,22 +161,23 @@ function FindingRow({
   return (
     <li className={`finding${selected ? " is-selected" : ""}`}>
       <button type="button" className="finding-button" onClick={onSelect} aria-expanded={selected}>
-        <span className={`status status-${finding.status}`}>{STATUS_LABELS[finding.status]}</span>
+        {/* The finding itself comes first; everything else is one quiet line under it. */}
         <span className="finding-text">{finding.text}</span>
 
-        {/* Tasks always show who and when, so a missing owner stands out.
-            Other findings only show the details they actually have. */}
-        {(isAction || finding.owner || finding.due) && (
-          <span className="finding-meta">
-            {(isAction || finding.owner) && (
-              <span className={finding.owner ? "" : "is-missing"}>{finding.owner ?? "No owner"}</span>
-            )}
-            {(isAction || finding.due) && (
-              <span className={finding.due ? "" : "is-missing"}>{finding.due ?? "No date"}</span>
-            )}
-          </span>
-        )}
-        <span className="finding-lines">{formatLines(finding.lines)}</span>
+        <span className="finding-meta">
+          <span className={`status status-${finding.status}`}>{STATUS_LABELS[finding.status]}</span>
+
+          {/* Tasks always show who and when, so a gap stands out.
+              Other findings only show the details they actually have. */}
+          {(isAction || finding.owner) && (
+            <Detail label="Who" value={finding.owner} missing="Not named" />
+          )}
+          {(isAction || finding.due) && (
+            <Detail label="When" value={finding.due} missing="No date" />
+          )}
+
+          <span className="finding-lines">{formatLines(finding.lines)}</span>
+        </span>
       </button>
 
       {/* On narrow screens the transcript sits far below, so quote the lines inline. */}
@@ -186,11 +187,37 @@ function FindingRow({
             .filter((line) => finding.lines.includes(line.id))
             .map((line) => (
               <li key={line.id}>
-                <span className="line-number">{line.id}</span> {line.text}
+                <span className="line-number">{line.id}</span>
+                <LineText text={line.text} />
               </li>
             ))}
         </ol>
       )}
     </li>
+  );
+}
+
+/** "Who Ben" / "When 25 October", or a faint placeholder when it's missing. */
+function Detail({ label, value, missing }: { label: string; value: string | null; missing: string }) {
+  return (
+    <span className="detail">
+      <span className="detail-label">{label}</span>{" "}
+      {value ? <span className="detail-value">{value}</span> : <span className="detail-missing">{missing}</span>}
+    </span>
+  );
+}
+
+/**
+ * Most chat exports look like "Name: message". Bolding the name makes it much
+ * easier to follow who said what. Lines without a short "Name:" prefix are
+ * shown as they are.
+ */
+function LineText({ text }: { text: string }) {
+  const match = text.match(/^([^:]{1,32}):\s*(.*)$/);
+  if (!match) return <span className="line-text">{text}</span>;
+  return (
+    <span className="line-text">
+      <strong className="speaker">{match[1]}</strong> {match[2]}
+    </span>
   );
 }
