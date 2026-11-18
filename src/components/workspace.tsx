@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { importChat } from "@/lib/chat-import";
 import { EXAMPLE_BRIEF, EXAMPLE_CONVERSATION } from "@/lib/example";
 import { MAX_CHARACTERS, MIN_CHARACTERS, type Brief } from "@/lib/report";
 import { BriefView } from "./brief-view";
+import { FormatGuide } from "./format-guide";
 import { useTurnstile } from "./use-turnstile";
 
 const PLACEHOLDER = `Paste a conversation here, one message per line.
@@ -24,6 +26,7 @@ export default function Workspace() {
   const [brief, setBrief] = useState<Brief | null>(null);
   const [isExample, setIsExample] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState(""); // Friendly info, e.g. after an import.
   const [remaining, setRemaining] = useState<number | null>(null);
   const [waitSeconds, setWaitSeconds] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -46,6 +49,7 @@ export default function Workspace() {
     setBrief(EXAMPLE_BRIEF);
     setIsExample(true);
     setError("");
+    setNotice("");
     setStatus("done");
   }
 
@@ -59,13 +63,29 @@ export default function Workspace() {
     const file = event.target.files?.[0];
     event.target.value = ""; // Allow choosing the same file again.
     if (!file) return;
+    setError("");
+    setNotice("");
 
-    if (file.size > 1024 * 1024) {
-      setError("That file is over 1 MB. Paste the part of the conversation you need instead.");
+    // Telegram exports can be big because of formatting data; only the text is kept.
+    if (file.size > 20 * 1024 * 1024) {
+      setError("That file is over 20 MB. Export a shorter date range, or paste the part you need.");
       return;
     }
-    setText(await file.text());
-    setError("");
+
+    try {
+      const result = importChat(file.name, await file.text());
+      setText(result.text);
+
+      const kind = { telegram: "Telegram", whatsapp: "WhatsApp", text: "" }[result.source];
+      if (kind) setNotice(`Imported ${result.messages.toLocaleString()} ${kind} messages.`);
+      if (result.dropped > 0) {
+        setNotice(
+          `Kept the newest messages and left out the ${result.dropped.toLocaleString()} oldest to fit ${MAX_CHARACTERS.toLocaleString()} characters.`,
+        );
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "That file couldn't be read.");
+    }
   }
 
   async function makeBrief() {
@@ -135,7 +155,10 @@ export default function Workspace() {
         <textarea
           id="conversation"
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => {
+            setText(event.target.value);
+            setNotice("");
+          }}
           placeholder={PLACEHOLDER}
           spellCheck={false}
           readOnly={working}
@@ -153,12 +176,12 @@ export default function Workspace() {
               onClick={() => fileInput.current?.click()}
               disabled={working}
             >
-              Open a .txt file
+              Import a chat
             </button>
             <input
               ref={fileInput}
               type="file"
-              accept=".txt,text/plain"
+              accept=".txt,.json,text/plain,application/json"
               onChange={importFile}
               hidden
             />
@@ -182,11 +205,18 @@ export default function Workspace() {
           {error}
         </p>
       )}
+      {notice && !error && (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      )}
 
       <p id="privacy-note" className="fine-print">
         Your text is sent to Google Gemini to make the brief and isn&apos;t stored with your
         name or IP. Please don&apos;t paste anything private. <a href="/privacy">Privacy</a>
       </p>
+
+      <FormatGuide />
     </section>
   );
 }

@@ -26,7 +26,8 @@ export default function Privacy() {
         So that pressing the button twice doesn&apos;t use the AI twice, the finished brief is
         kept for 24 hours under a fingerprint (hash) of the text. It isn&apos;t linked to you, your
         IP address or anything else that identifies you. The example brief never leaves your
-        browser.
+        browser, and imported Telegram or WhatsApp files are read on your device: only the
+        tidied text is sent, and only when you press Make brief.
       </p>
 
       <h2>Limits and bot checks</h2>

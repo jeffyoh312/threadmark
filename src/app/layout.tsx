@@ -39,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="page">{children}</main>
 
         <footer className="site-footer">
-          Built by <a href="https://github.com/jeffyoh312">Khaled Morshed</a>. AI can misread a
+          Built by <a href="https://github.com/jeffyoh312">Khaled</a>. AI can misread a
           conversation, so check the source lines before acting on a brief.
         </footer>
       </body>
