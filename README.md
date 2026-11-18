@@ -6,145 +6,178 @@
 
 <p align="center"><strong>Long chat. Clear next steps.</strong></p>
 
+<p align="center">Paste a conversation. Get back what was agreed, who's doing what, and what still needs an answer.</p>
+
 <p align="center">
-  <a href="https://threadmark-sepia.vercel.app/">Try Threadmark</a> ·
+  <a href="https://threadmark-sepia.vercel.app">Live demo</a> ·
+  <a href="#why-this-exists">The problem</a> ·
   <a href="#a-small-example">See an example</a> ·
   <a href="#how-it-works">How it works</a> ·
-  <a href="#run-it-locally">Run locally</a>
+  <a href="#run-locally">Run locally</a> ·
+  <a href="LICENSE">MIT license</a>
 </p>
 
 ---
 
-A price changes halfway through a chat. Someone suggests a different deadline. A task gets mentioned, but nobody agrees to take it on.
+A price changes halfway through a chat. Someone suggests a new deadline. A task gets mentioned, but nobody actually agrees to do it.
 
-By the end, everyone has read the same conversation. That doesn't mean everyone remembers the same agreement.
+By the end, everyone has read the same conversation, but that doesn't mean everyone remembers the same agreement.
 
-**Threadmark turns messy conversations into clear, reviewable briefs.** It brings together decisions, next steps, important dates and unanswered questions, with links to the original lines behind each finding.
+**Threadmark turns a messy conversation into a brief you can check.** It pulls out the decisions, next steps, dates and open questions, and every point is tied to the exact lines it came from. Select a point and those lines light up in the conversation beside it.
 
-The idea is simple: make it easier to understand what happened, what needs doing and what still needs an answer.
+> **Public demo.** No sign-up. Try the prepared example instantly, or paste your own conversation. Live briefs are written by Google Gemini on its free tier, so please don't paste anything private. See [privacy and terms](https://threadmark-sepia.vercel.app/privacy).
 
-## Why I built it
+| Paste a conversation | Read the brief | Check where it came from |
+| --- | --- | --- |
+| ![The compose screen with a pasted conversation](docs/screenshots/01-compose.png) | ![A finished brief with decisions and next steps](docs/screenshots/02-brief.png) | ![A selected finding with its source lines highlighted](docs/screenshots/03-evidence.png) |
 
-Important details often get buried in conversations about projects, prices and deliveries. Finding them again means scrolling through messages, following revisions and working out which suggestions actually became agreements.
+## Why this exists
 
-An AI summary can save time, but it can also flatten those differences. “Could you send the invoice?” can become a task that sounds accepted. An earlier price can appear without the message that changed it.
+Important details get buried in conversations about projects, prices and deliveries. Finding them again means scrolling back through messages, following revisions and working out which suggestions actually became agreements.
 
-I built Threadmark to make those distinctions easier to review. The brief keeps the useful details together, and the supporting messages stay close enough to check.
+An AI summary saves time, but it can also flatten exactly those differences. "Could you send the invoice?" turns into a task that sounds accepted. An old price shows up without the message that changed it.
+
+Threadmark is built around that problem. Every finding carries a status that keeps those differences visible, and the evidence is always one click away, so you don't have to take the AI's word for it.
 
 ## A small example
 
 ```text
-Customer: We need 100 blue notebooks. Can you do RM10 each?
-Seller: Yes, RM10 each for 100 blue notebooks.
-Customer: Agreed. Can you ship on 25 October?
-Seller: Confirmed, we will ship on 25 October.
-Customer: Please send the invoice.
+Aina: Hi! We need 100 blue notebooks for the workshop. Can you do RM10 each?
+Ben:  RM10 works for 100. I can ship on 22 October.
+Aina: Could we push shipping to 25 October? The venue isn't confirmed until then.
+Ben:  Sure, 25 October it is.
+Aina: Also, please send the invoice to accounts@example.com.
 ```
 
-A useful brief should recognise the difference between these findings:
+| Finding | Status | Why |
+| --- | --- | --- |
+| **100 notebooks at RM10 each** | Agreed | Aina asked, Ben accepted. |
+| **Ship on 25 October** | Agreed | Ben confirmed the new date. |
+| **Ship on 22 October** | Replaced later | The earlier date was changed, so it's shown crossed out rather than dropped. |
+| **Send the invoice** | Suggested, not agreed | Aina asked, but Ben never said yes. |
 
-| Finding | What the conversation supports |
+That last row is the point. A request, an agreement and a finished task are three different things, and the brief keeps them apart. The full version of this conversation is the **See an example** button in the demo, which opens instantly without calling the AI.
+
+## What's in a brief
+
+| Section | What it tells you |
 | --- | --- |
-| **RM10 per notebook** | The seller accepted the price and the customer agreed. |
-| **Shipment on 25 October** | The seller confirmed the requested date. |
-| **Send the invoice** | The customer made a request, but the seller has not explicitly accepted it. |
+| **Summary** | What the conversation is about, in a sentence or two. |
+| **Decisions** | What was agreed, suggested, or replaced by a later agreement. |
+| **Next steps** | Who needs to do what, and by when. Missing owners and dates are shown as **No owner** and **No date**, so gaps stand out. |
+| **Needs an answer** | Questions and details still waiting on someone. |
+| **Dates** and **Goals** | Dates in the conversation's own wording, and what people are trying to achieve. |
 
-That last distinction matters. A request, an agreement and a completed task are three different things.
+Each finding has one of five statuses: **Agreed**, **Suggested, not agreed**, **Replaced later**, **Open** and **Said to be done** (someone says it's finished; Threadmark can't verify that).
 
-This example illustrates the intended behaviour. AI can still misinterpret a conversation, so each finding includes source references for the reader to review.
-
-## Inside the brief
-
-| Section | What it helps you understand |
-| --- | --- |
-| **At a glance** | What the conversation is about. |
-| **Decisions** | What was agreed, proposed or replaced by a later agreement. |
-| **Next steps** | What needs doing, who is responsible and when it is due. |
-| **Needs an answer** | Questions and details that still need confirmation. |
-| **Important dates** | Dates worth keeping track of, in the wording used in the conversation. |
-| **Goals** | What the people involved are trying to achieve. |
-
-Missing task details are visible: **Not assigned** for an unstated owner and **No date given** for an unstated deadline.
-
-Findings also carry plain-language status labels, such as **Confirmed in chat**, **Suggested, not agreed** and **Needs confirmation**. When someone says work is finished, it is labelled **Reported done, not verified**.
-
-You can filter the brief by category, expand the source messages below a finding, or export the complete brief as Markdown with its source references.
-
-## Using Threadmark
-
-1. **Bring a conversation.** Paste the text or import a `.txt` file. Use fictional or fully anonymised, non-confidential examples in the public demo.
-2. **Create a brief.** Complete the submission confirmations and bot verification, then request analysis.
-3. **Review what matters.** Read the decisions, tasks and unanswered questions. Open the supporting messages to check the details.
-4. **Keep a copy.** Export the brief if you want to save it.
-
-Want to see the result first? Choose **Explore an example** in the [demo](https://threadmark-sepia.vercel.app/). It opens a prepared brief without sending text to the AI service.
-
-Live analysis accepts excerpts of **20 to 20,000 characters**. The workspace is temporary: refreshing or closing the page clears the conversation and report. Download an export before leaving if you want to keep it.
+Briefs can be copied as Markdown or downloaded as a `.md` file, ready for notes, an email or a ticket.
 
 ## How it works
 
 ```mermaid
-flowchart TD
-  A["Paste or import a conversation"] --> B["Check the request and usage limits"]
-  B --> C["Gemini extracts structured findings"]
-  C --> D["Validate the report and source references"]
-  D --> E["Review, filter and export the brief"]
+flowchart LR
+    U[Browser] -->|conversation + bot-check token| API["/api/analyze"]
+    API --> G{Checks}
+    G -->|same origin, size, rate limit, Turnstile| C[(Upstash Redis)]
+    C -->|cached brief?| API
+    API -->|numbered lines| M[Gemini Flash-Lite]
+    M -->|JSON report| V[Validate and clean]
+    V --> U
 ```
 
-The server assigns line numbers to the conversation and sends those lines to Gemini with instructions to distinguish agreements, proposals, requests and unresolved details. Every finding must cite supporting source lines.
+- **Numbered lines in, cited lines out.** The server numbers each line of the conversation and asks Gemini for JSON that follows a fixed schema. Every finding has to cite the lines that support it.
+- **Validate, don't trust.** The response is checked against the same [Zod schema](src/lib/report.ts) the page uses to render it. Citations to lines that don't exist are dropped, and so is any finding left without evidence, rather than throwing the whole brief away.
+- **Built to stay up on a free tier.** Gemini calls use Flash-Lite models, which have the most generous free quota. Temporary failures are retried, and if one model is busy or out of quota the next one takes over ([gemini.ts](src/lib/server/gemini.ts)).
+- **The same chat twice costs nothing.** Finished briefs are cached in Redis for 24 hours under a hash of the text, so resubmitting doesn't use any quota.
+- **Nothing is stored in the browser.** Refreshing the page starts over.
 
-Gemini returns structured JSON. The server checks the report's format and rejects references to lines that do not exist before the brief reaches the interface.
+### Keeping the public demo fair
 
-Those checks make the output easier to handle and review. They do not prove a finding is correct: the reader still needs to decide whether the cited messages support it.
+The checks in [route.ts](src/app/api/analyze/route.ts) run cheapest first, so abusive traffic is turned away before it costs anything:
 
-### Protecting the public demo
+1. **Same origin only.** Requests have to come from the Threadmark page.
+2. **Burst limit.** At most 3 requests a minute per visitor.
+3. **Input limits.** 20 to 20,000 characters, with a 64 KB cap on the request body.
+4. **Invisible bot check.** Cloudflare Turnstile runs in the background. Real visitors almost never see it.
+5. **Daily limits.** 15 briefs per visitor and 400 for the whole site each day, which keeps it inside Gemini's free quota. Cached briefs don't count.
 
-Gemini requests run on the server, keeping the API key out of browser code. Cloudflare Turnstile checks submissions for automated abuse, while Upstash Redis coordinates usage limits across server instances.
+Visitors are identified by an HMAC of their IP address (IPv6 grouped by /64), so raw IPs never reach Redis. Logs record only the model and status code, never the conversation. Security headers, including a strict Content Security Policy, are set in [next.config.ts](next.config.ts). More detail is in [SECURITY.md](SECURITY.md).
 
-Limits apply per network and across the whole site, with an additional cap on simultaneous analyses. People sharing a network may share an allowance. If usage checks are unavailable, the server stops the request before calling Gemini.
-
-See [SECURITY.md](SECURITY.md) for the controls and their limitations.
-
-## Built with
-
-| Part | Technology |
+| Layer | Tools |
 | --- | --- |
-| Application | Next.js, React and TypeScript |
-| Styling | Tailwind CSS |
-| Conversation analysis | Google Gemini through the Google GenAI SDK |
-| Response validation | Zod |
-| Shared usage limits | Upstash Redis and atomic Lua scripts |
-| Bot verification | Cloudflare Turnstile |
+| App | Next.js 16 (App Router), React 19, TypeScript |
+| Interface | Plain CSS with design tokens, Bricolage Grotesque and JetBrains Mono, light and dark themes |
+| AI | Google Gemini through the `@google/genai` SDK, with structured JSON output |
+| Validation | Zod |
+| Limits and cache | Upstash Redis with `@upstash/ratelimit` |
+| Bot check | Cloudflare Turnstile |
 | Hosting | Vercel |
-| Automated checks | Node.js test runner, Playwright and Python with fakeredis |
+| Checks | Node's test runner, ESLint, TypeScript, GitHub Actions |
 
-## Run it locally
+Everything runs on free tiers.
 
-Use **Node.js 24**:
+## Run locally
+
+Requires **Node.js 22 or newer**.
 
 ```bash
-git clone https://github.com/jeffyoh312/threadmark.git
-cd threadmark
+git clone https://github.com/jeffyoh312/threadmarks.git
+cd threadmarks
 npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:3000`. The prepared example works without cloud credentials.
+Open **http://localhost:3000**. The example works straight away with no keys.
 
-To enable live analysis, copy `.env.example` to `.env.local` and configure the services described in the [deployment guide](docs/DEPLOYMENT.md). Keep private credentials out of Git and browser-exposed environment variables.
+To make live briefs, copy `.env.example` to `.env.local` and add a free [Gemini API key](https://aistudio.google.com/apikey). That's all you need locally: without Upstash or Turnstile keys, rate limits and the bot check are skipped in development. In production they're required, and live analysis stays off until they're set.
 
-For development checks and implementation details, see the [maintenance notes](docs/MAINTENANCE.md) and [validation record](docs/VALIDATION.md).
+| Variable | Needed for |
+| --- | --- |
+| `GEMINI_API_KEY` | Live briefs |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Rate limits and the cache (production) |
+| `TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | The bot check (production) |
+| `RATE_LIMIT_SECRET` | Anonymising IP addresses |
+| `GEMINI_MODEL` | Optional. A model to try before the built-in defaults |
+| `ANALYSIS_ENABLED=false` | Optional. Pauses live analysis |
 
-## Scope and limitations
+### Deploying
 
-Threadmark analyses the text you provide. It does not connect directly to WhatsApp or other messaging platforms, store a report history or independently verify that work was completed.
+Import the repository into Vercel, add the variables above to the Production environment, and deploy. The Turnstile widget needs your production hostname in its allowed domains.
 
-AI can miss context, misunderstand an agreement or cite a message that does not support its conclusion. Review the original words before relying on a finding. A brief does not establish a legal agreement.
+## Working on the code
 
-Live analysis sends submitted text to Google Gemini. Use fictional or fully anonymised, non-confidential content and read the [Privacy Notice](https://threadmark-sepia.vercel.app/privacy) before submitting.
+```text
+src/app/page.tsx              The home page
+src/app/api/analyze/route.ts  The API: checks, cache, Gemini, response
+src/app/privacy/page.tsx      Privacy and terms
+src/app/globals.css           All styles and design tokens
+src/components/workspace.tsx  Compose screen and request handling
+src/components/brief-view.tsx The brief and the highlighted conversation
+src/components/use-turnstile.ts  Invisible bot check
+src/lib/report.ts             Report schema, line numbering and clean-up
+src/lib/labels.ts             Section names, status labels, Markdown export
+src/lib/example.ts            The prepared example
+src/lib/server/               Gemini client, rate limits, Turnstile, HTTP helpers
+tests/                        Unit tests
+```
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the development server |
+| `npm test` | Unit tests for report clean-up, line references, Markdown export and visitor keys |
+| `npm run check` | Lint, typecheck and tests together, as CI runs them |
+| `npm run build` | Production build |
+
+## Current limits
+
+Threadmark only reads the text you paste. It doesn't connect to WhatsApp, Slack or email, keep a history of briefs, or check whether work was actually done. Conversations are capped at 20,000 characters; longer ones would need splitting into chunks.
+
+AI can miss context, misread an agreement or cite a line that doesn't really support a finding. That's why the evidence is always visible: read the original words before relying on a brief. A brief isn't a legal record of an agreement.
+
+Live analysis isn't available in the EEA, UK or Switzerland, because Gemini's free tier can't be used to serve people there.
 
 ---
 
-Built and maintained by **[Khaled Morshed](https://github.com/jeffyoh312)**.
+Built by **[Khaled Morshed](https://github.com/jeffyoh312)**.
 
-Source code is licensed under the [MIT License](LICENSE). Threadmark's name, logo and original branding are not licensed for reuse. Third-party assets retain their respective licences.
+Source code is licensed under the [MIT License](LICENSE). The Threadmark name and logo aren't covered by the license.

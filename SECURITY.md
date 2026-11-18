@@ -1,38 +1,42 @@
-# Security model
+# Security
 
-Threadmark is an anonymous public demo. No account, cookie identifier or browser-provided user ID is trusted for quotas.
+Threadmark is an anonymous public demo. There are no accounts, so the goal is simple: let people try it freely while making sure nobody can run up the AI quota, break the site for others, or get at the API key.
 
-## Admission to Gemini
+## How a request is checked
 
-1. Deployment flags, exact origin, content type and regional policy are checked.
-2. On production Vercel, `x-vercel-forwarded-for` supplies the network identity. Generic `x-forwarded-for` and Authorization headers are ignored. Missing or malformed platform IPs fail closed. Development uses loopback.
-3. IPv6 addresses are grouped by /64; mapped IPv4 is normalized. A stable secret HMAC produces the Redis identifier. Raw IPs are not persisted by application code.
-4. Shared Redis Lua ingress checks run before body parsing and Turnstile. They admit 10 requests/network/minute and 120 requests/site/minute. Malformed JSON counts toward ingress, but not the AI allowance.
-5. Actual streamed bytes, upload duration, consent, policy version and text length are checked.
-6. Turnstile success, hostname and action are verified server-side. Production test keys are prohibited.
-7. One atomic Lua reservation checks visitor minute/day caps, site day cap, pause/block flags, and visitor/site concurrency before any Gemini request.
-8. Gemini uses server-only credentials, a separate system instruction, structured JSON, no tools, `store:false`, zero automatic retries, a timeout and bounded output. Completed status, JSON schema and citation existence are validated before returning results.
+Every `POST /api/analyze` goes through these steps in order. Each one is cheaper than the next, so bad traffic is rejected early.
 
-Network quotas default to 2/minute and 5/UTC day. The site defaults to 20 attempts/UTC day and 3 active analyses. Requests that reach Gemini are not refunded on failure. Daily counters expire within 48 hours; locks last 120 seconds. Shared active slots expire by score after 120 seconds and their set expires after 240 seconds. A stale release cannot delete a replacement lock or another request's slot.
+| Step | What it does | Where |
+| --- | --- | --- |
+| Kill switch | `ANALYSIS_ENABLED=false` pauses live analysis without a code change. | `route.ts` |
+| Same origin | The `Origin` header must match the site. Stops other websites posting from a visitor's browser. | `http.ts` |
+| Region | Requests from the EEA, UK and Switzerland are refused, as Gemini's free tier can't serve them. | `route.ts` |
+| Burst limit | 3 requests per minute per visitor, shared across all server instances through Redis. | `limits.ts` |
+| Input | JSON only, 64 KB body cap (checked on the real bytes, not just `Content-Length`), 20 to 20,000 characters. | `http.ts`, `route.ts` |
+| Bot check | Cloudflare Turnstile token verified server-side, including that it was issued for this hostname and the `analyze` action. Tokens are single use. | `turnstile.ts` |
+| Cache | Identical text returns the cached brief, without touching Gemini or the daily limit. | `limits.ts` |
+| Daily limits | 15 per visitor and 400 for the whole site per day. | `limits.ts` |
+| Gemini | Server-side API key, structured JSON output, 25 s per attempt, 50 s overall. | `gemini.ts` |
+| Output | Validated with Zod. Unknown line citations and unsupported findings are removed. | `report.ts` |
 
-## Boundaries
+If Redis or Turnstile isn't configured in production, the API refuses to run rather than running without limits.
 
-Origin checks are not authentication. Bots can forge Origin headers, solve challenges and rotate networks. Shared-network visitors can exhaust each other's allowance. A distributed attacker may consume the site's daily allowance and deny live analysis to others; the prepared example remains available. These limits prioritize bounded AI usage over guaranteed availability.
+## Privacy by design
 
-The controls do not prevent all function/Redis charges or provide a penetration-test guarantee. Use Vercel's edge firewall for traffic before functions, and Google-side quotas and billing controls for provider usage. Never expose production functions outside Vercel while trusting its headers.
+- Visitors are identified by an HMAC-SHA256 of their IP address using `RATE_LIMIT_SECRET`. IPv6 addresses are grouped by /64 so one device can't dodge limits by hopping addresses. The raw IP is never stored.
+- On Vercel, the IP comes from `x-vercel-forwarded-for`, which the platform sets and the browser can't override.
+- Briefs are cached for 24 hours under a SHA-256 hash of the conversation, not linked to the visitor.
+- Logs contain the model name and HTTP status only. Conversation text, tokens and upstream error bodies are never logged or sent back to the browser.
+- Prompt injection: the conversation is passed as data, and the system instruction tells the model never to follow instructions inside it. The output can only ever be a report that fits the schema, and it's rendered as plain text.
 
-Do not disable Redis or Turnstile validation to repair an outage. Live analysis fails closed when guards are unavailable. Preview deployments cannot run live analysis.
+## Headers
 
-## Keys and logs
+Set for every page in `next.config.ts`: a Content Security Policy that only allows our own origin plus Cloudflare Turnstile, `frame-ancestors 'none'`, HSTS, `nosniff`, a strict referrer policy and a permissions policy that turns off camera, microphone and location.
 
-Store secrets only in private local/Vercel environment variables. Only `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is public. The Gemini key is never sent to the browser or included in provider error responses. Logs include controlled stages and numeric statuses, not request bodies, tokens or provider exception messages. CSP no longer permits Firebase/Google authentication scripts or frames.
+## Known limits
 
-Run `npm run security:check` inside the Git repository before pushing. It heuristically scans working files, the index and locally available history. It is not a guarantee that every possible credential is detected. If a key was exposed, revoke and replace it; merely deleting the file is insufficient.
+Origin checks aren't authentication, and a determined attacker can rotate IP addresses and solve bot checks. In that case the site-wide daily cap is what protects the quota: the worst outcome is that live briefs stop for the day, while the example keeps working. Because the Gemini key is on the free tier with no billing attached, abuse can't create a bill.
 
-## Emergency pause
+## Reporting a problem
 
-Set `<QUOTA_NAMESPACE>:disabled` to `1` in Redis to stop admission without a build. Remove it after investigating. To disable the feature persistently, set `ANALYSIS_ENABLED=false` in Vercel and redeploy. Redis blocking records use `<QUOTA_NAMESPACE>:blocked:<visitor HMAC>` and remain until manually removed. Do not log raw IP addresses to build block lists.
-
-## Reporting
-
-Contact the operator shown on the hosted privacy page. Do not post credentials or private conversation text in public issues, and do not load-test the public demo without permission.
+Please open an issue on GitHub without including secrets or private conversation text, and don't load-test the public demo.

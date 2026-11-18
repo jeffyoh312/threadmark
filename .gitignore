@@ -52,3 +52,6 @@ Thumbs.db
 /playwright-report/
 /blob-report/
 /AGENTS.md
+
+# Local editor/tool settings
+.claude/

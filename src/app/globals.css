@@ -1,21 +1,715 @@
-@import "tailwindcss";
+/*
+ * Threadmark styles.
+ *
+ * Plain CSS with a handful of tokens. The idea: a quiet, cool page in the
+ * brand violet, where the one loud thing is the yellow highlighter that marks
+ * which lines of the conversation a finding came from.
+ */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --ink: #17182b;
+  --muted: #5f6377;
+  --faint: #8d91a5;
+  --line: #e3e5ee;
+  --brand: #4b39ef;
+  --brand-ink: #ffffff;
+  --mark: #ffe866;
+  --mark-ink: #2b2500;
+
+  /* Status colours: text on a light tint of the same hue. */
+  --agreed: #13704a;
+  --agreed-bg: #e5f5ed;
+  --suggested: #8f5600;
+  --suggested-bg: #fdf0da;
+  --open: #6a35c9;
+  --open-bg: #efe8fc;
+  --done: #1a5fa8;
+  --done-bg: #e4eefa;
+  --replaced: #6b6f80;
+  --replaced-bg: #eceef3;
+  --danger: #b42318;
+  --danger-bg: #fdecea;
+
+  --radius: 10px;
+  --sans: var(--font-sans), system-ui, sans-serif;
+  --mono: var(--font-mono), ui-monospace, monospace;
+  color-scheme: light dark;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121320;
+    --surface: #1b1c2c;
+    --ink: #ecedf5;
+    --muted: #a6a9bd;
+    --faint: #7b7f96;
+    --line: #2d2f44;
+    --brand: #7a6cff;
+    --mark: #e8cb3c;
+    --mark-ink: #1d1900;
+    --agreed: #6fd7a5;
+    --agreed-bg: #163428;
+    --suggested: #f2bd62;
+    --suggested-bg: #3a2c12;
+    --open: #c3a6ff;
+    --open-bg: #2c2148;
+    --done: #8dc0ff;
+    --done-bg: #17304d;
+    --replaced: #a2a6b8;
+    --replaced-bg: #272938;
+    --danger: #ff9a8f;
+    --danger-bg: #3d1a17;
+  }
+}
+
+/* ---------- Base ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
 
-:focus-visible {outline:3px solid #0f766e;outline-offset:3px;}
+h1,
+h2,
+p,
+ul,
+ol {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- Page frame ---------- */
+
+.site-header,
+.page,
+.site-footer {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding-inline: 24px;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 20px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.site-header nav {
+  display: flex;
+  gap: 20px;
+  font-size: 0.9rem;
+}
+
+.site-header nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.site-header nav a:hover {
+  color: var(--ink);
+}
+
+.page {
+  flex: 1;
+  padding-block: 32px 64px;
+}
+
+.site-footer {
+  padding-block: 24px 32px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 0.85rem;
+}
+
+/* ---------- Buttons ---------- */
+
+.primary {
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--brand);
+  color: var(--brand-ink);
+  padding: 11px 22px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.primary:disabled {
+  background: var(--line);
+  color: var(--faint);
+}
+
+.secondary {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.secondary:hover {
+  border-color: var(--faint);
+}
+
+.link-button {
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  color: var(--brand);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.link-button:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.link-button:disabled {
+  color: var(--faint);
+}
+
+/* ---------- Compose screen ---------- */
+
+.compose {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.intro h1 {
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  font-weight: 700;
+}
+
+.intro p {
+  max-width: 34em;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 1.08rem;
+}
+
+.editor {
+  margin-top: 36px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.editor:focus-within {
+  border-color: var(--brand);
+}
+
+.editor textarea {
+  display: block;
+  width: 100%;
+  min-height: 320px;
+  resize: vertical;
+  border: 0;
+  outline: none;
+  padding: 20px 22px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  line-height: 1.75;
+}
+
+.editor textarea::placeholder {
+  color: var(--faint);
+}
+
+/* While Gemini works, a highlighter sweeps down the text: the same mark the
+   brief uses for evidence, hinting at what's about to happen. */
+.editor.is-working {
+  position: relative;
+}
+
+.editor.is-working textarea {
+  opacity: 0.55;
+}
+
+.editor.is-working::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 28px;
+  background: var(--mark);
+  opacity: 0.35;
+  animation: sweep 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sweep {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(300px);
+  }
+}
+
+.editor-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 12px 14px 12px 22px;
+  border-top: 1px solid var(--line);
+}
+
+.editor-tools {
+  display: flex;
+  gap: 20px;
+  margin-right: auto;
+}
+
+.counter {
+  color: var(--faint);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.counter.is-over {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.bot-check:not(:empty) {
+  margin-top: 16px;
+}
+
+.error {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 0.93rem;
+}
+
+.fine-print {
+  margin-top: 16px;
+  color: var(--faint);
+  font-size: 0.85rem;
+}
+
+/* ---------- Brief screen ---------- */
+
+.brief-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.brief-header {
+  max-width: 720px;
+  margin-top: 36px;
+}
+
+.brief-kind {
+  color: var(--faint);
+  font-size: 0.88rem;
+}
+
+.brief-header h1 {
+  margin-top: 8px;
+  font-size: clamp(2rem, 5vw, 2.9rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+
+.brief-header h1:focus {
+  outline: none;
+}
+
+.brief-summary {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.brief-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+  gap: 40px;
+  align-items: start;
+  margin-top: 40px;
+}
+
+.section + .section {
+  margin-top: 36px;
+}
+
+.section h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+}
+
+.count {
+  color: var(--faint);
+  font-size: 0.95rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  padding-top: 14px;
+  color: var(--faint);
+  font-size: 0.93rem;
+}
+
+.findings {
+  list-style: none;
+  padding: 0;
+}
+
+.finding {
+  border-bottom: 1px solid var(--line);
+}
+
+.finding-button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "status status lines"
+    "text text text"
+    "meta meta meta";
+  gap: 6px 12px;
+  width: 100%;
+  padding: 14px 12px;
+  margin-inline: -12px;
+  width: calc(100% + 24px);
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  text-align: left;
+}
+
+.finding-button:hover {
+  background: var(--surface);
+}
+
+.finding.is-selected .finding-button {
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--mark);
+}
+
+.status {
+  grid-area: status;
+  justify-self: start;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.status-confirmed {
+  color: var(--agreed);
+  background: var(--agreed-bg);
+}
+
+.status-proposed {
+  color: var(--suggested);
+  background: var(--suggested-bg);
+}
+
+.status-unresolved {
+  color: var(--open);
+  background: var(--open-bg);
+}
+
+.status-reported_complete {
+  color: var(--done);
+  background: var(--done-bg);
+}
+
+.status-superseded {
+  color: var(--replaced);
+  background: var(--replaced-bg);
+}
+
+/* A replaced arrangement stays readable but clearly isn't current. */
+.status-superseded ~ .finding-text {
+  color: var(--faint);
+  text-decoration: line-through;
+  text-decoration-color: var(--faint);
+}
+
+.finding-text {
+  grid-area: text;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.finding-lines {
+  grid-area: lines;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  align-self: center;
+}
+
+.finding-meta {
+  grid-area: meta;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.finding-meta > span {
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.finding-meta > .is-missing {
+  border-style: dashed;
+  color: var(--faint);
+}
+
+/* Inline quotes only matter when the transcript isn't beside the brief. */
+.inline-quote {
+  display: none;
+}
+
+/* ---------- Transcript ---------- */
+
+.transcript {
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.transcript h2 {
+  padding: 16px 18px 0;
+  font-size: 1rem;
+}
+
+.transcript-hint {
+  padding: 2px 18px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 0.85rem;
+}
+
+.lines {
+  list-style: none;
+  padding: 10px 0;
+  overflow-y: auto;
+  font-size: 0.9rem;
+}
+
+.lines li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  padding: 3px 18px 3px 0;
+  transition: background-color 0.2s;
+}
+
+.line-number {
+  padding-right: 12px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.85;
+  text-align: right;
+  user-select: none;
+}
+
+.line-text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.lines li.is-marked {
+  background: var(--mark);
+  color: var(--mark-ink);
+}
+
+.lines li.is-marked .line-number {
+  color: var(--mark-ink);
+}
+
+/* Narrow screens: one column, conversation underneath, quotes inline. */
+@media (max-width: 900px) {
+  .brief-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .transcript {
+    position: static;
+    max-height: none;
+  }
+
+  .inline-quote {
+    display: block;
+    list-style: none;
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    background: var(--mark);
+    color: var(--mark-ink);
+    font-size: 0.9rem;
+  }
+
+  .inline-quote .line-number {
+    color: var(--mark-ink);
+    padding-right: 6px;
+  }
+}
+
+@media (max-width: 560px) {
+  .site-header,
+  .page,
+  .site-footer {
+    padding-inline: 16px;
+  }
+
+  .editor-bar {
+    padding-left: 16px;
+  }
+
+  .editor-bar .primary {
+    width: 100%;
+  }
+}
+
+/* ---------- Privacy page ---------- */
+
+.prose {
+  max-width: 660px;
+  margin: 0 auto;
+}
+
+.back-link {
+  color: var(--brand);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.prose h1 {
+  margin-top: 20px;
+  font-size: 2.4rem;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.prose-updated {
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: 0.85rem;
+}
+
+.prose h2 {
+  margin-top: 36px;
+  font-size: 1.2rem;
+}
+
+.prose p,
+.prose ul {
+  margin-top: 12px;
+  color: var(--muted);
+}
+
+.prose li + li {
+  margin-top: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

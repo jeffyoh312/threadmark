@@ -1,201 +1,79 @@
-import { Contact, LegalPage } from "@/components/legal-page";
-import { publicSettings } from "@/lib/server/release";
-export const metadata = { title: "Privacy Notice | Threadmark" };
+import type { Metadata } from "next";
+import Link from "next/link";
+
+export const metadata: Metadata = { title: "Privacy and terms | Threadmark" };
+
+// Kept short on purpose: this is a public demo and the honest answer to
+// "what happens to my text?" fits on one page.
 export default function Privacy() {
-  const settings = publicSettings();
   return (
-    <LegalPage title="Privacy Notice">
+    <article className="prose">
+      <Link href="/" className="back-link">
+        Back to Threadmark
+      </Link>
+      <h1>Privacy and terms</h1>
+      <p className="prose-updated">Last updated 18 November 2026</p>
+
+      <h2>What happens to your text</h2>
       <p>
-        This notice explains information processed when you browse or request
-        analysis. <a href="#bahasa-melayu">Notis Bahasa Melayu</a>.
+        When you press <strong>Make brief</strong>, the conversation is sent to the Threadmark
+        server and on to Google Gemini, which writes the brief. Threadmark uses Gemini&apos;s free
+        tier, so Google may use what you send to improve its products and people at Google may
+        review it. Please only paste conversations you&apos;re happy to share, and leave out
+        personal, sensitive or confidential details.
       </p>
-      <Contact />
-      <h2>Information and purpose</h2>
+      <p>
+        So that pressing the button twice doesn&apos;t use the AI twice, the finished brief is
+        kept for 24 hours under a fingerprint (hash) of the text. It isn&apos;t linked to you, your
+        IP address or anything else that identifies you. The example brief never leaves your
+        browser.
+      </p>
+
+      <h2>Limits and bot checks</h2>
+      <p>
+        To keep the demo free and fair, each visitor gets a small number of briefs per day.
+        Your IP address is turned into an anonymous code before it&apos;s used to count them, and
+        the counts expire within two days. Cloudflare Turnstile checks that requests come from a
+        real browser; it usually runs without you noticing.
+      </p>
+
+      <h2>No accounts, no tracking</h2>
+      <p>
+        There are no accounts, analytics or advertising cookies. Refreshing the page clears your
+        conversation and brief. Download or copy a brief if you want to keep it.
+      </p>
+
+      <h2>Services used</h2>
       <ul>
         <li>
-          No sign-in is required. Threadmark does not collect a Google profile
-          or email address to generate a brief.
+          <a href="https://ai.google.dev/gemini-api/terms">Google Gemini</a> writes the brief.
         </li>
         <li>
-          Submitted text passes through the application server to Google Gemini
-          to generate a report. Use fictional or fully anonymised examples.
-          Importing a text file reads it in your browser; text is sent only when
-          analysis is requested.
+          <a href="https://vercel.com/legal/privacy-policy">Vercel</a> hosts the site.
         </li>
         <li>
-          Upstash stores usage counters and temporary locks linked to a hash of
-          your network address using a server-secret HMAC, plus abuse-block
-          records where needed. Raw IP addresses are not written to Redis by the
-          application. This is pseudonymisation, not guaranteed anonymity.
+          <a href="https://upstash.com/trust/privacy.pdf">Upstash</a> stores the usage counts and
+          the 24-hour cache.
         </li>
         <li>
-          Vercel and Cloudflare process technical and security information such
-          as IP address, browser information and request timing. Vercel’s
-          IP-derived country restricts analysis by region. Cloudflare Turnstile
-          uses browser/security signals to check for automated abuse.
+          <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare</a> runs the bot check.
         </li>
       </ul>
-      <h2>AI processing on this deployment</h2>
-      {settings.dataMode === "unpaid" ? (
-        <p>
-          This deployment is configured for Gemini’s unpaid service. Google may
-          use text and responses to provide, improve and develop products and
-          machine-learning technologies. Human reviewers may read and process
-          content. Do not submit personal, sensitive or confidential
-          information.
-        </p>
-      ) : (
-        <p>
-          This deployment is configured for Gemini’s paid-service terms. Under
-          those terms Google does not use prompts and responses to improve its
-          products, but may retain them for a limited period for abuse detection
-          and legal obligations. Only fictional or fully anonymised content is
-          accepted here.
-        </p>
-      )}
+      <p>Live analysis isn&apos;t offered in the EEA, UK or Switzerland, where Gemini&apos;s free tier can&apos;t be used.</p>
+
+      <h2>Using the demo</h2>
       <p>
-        This reflects the operator’s declared billing configuration. Actual
-        processing is governed by the Google project and applicable{" "}
-        <a href="https://ai.google.dev/gemini-api/terms">Gemini API terms</a>.
-        Disabling interaction storage does not override those terms.
+        Threadmark is a demo, offered as is. AI can miss context or misread an agreement, so check
+        the marked lines before relying on a brief; it isn&apos;t legal or professional advice.
+        Please don&apos;t use it to process other people&apos;s private messages without their
+        permission, try to get around the limits, or load-test the site.
       </p>
-      <h2>Storage and retention</h2>
+
+      <h2>Questions</h2>
       <p>
-        The application does not maintain a database of conversations or
-        reports. Content remains in the browser workspace until cleared,
-        refreshed or closed. Downloaded reports remain on your device until you
-        delete them. Text and reports pass through server memory during
-        analysis; application code does not intentionally log conversation
-        bodies, tokens or provider errors.
+        Open an issue on <a href="https://github.com/jeffyoh312/threadmarks/issues">GitHub</a>. Don&apos;t
+        include private conversation text in it.
       </p>
-      <p>
-        No new accounts are created. Records from the earlier Firebase version
-        require separate deletion by the operator. Usage counters expire within
-        48 hours of their last update; analysis locks and ingress counters
-        expire within 120 seconds; shared concurrency records expire within 240
-        seconds. Abuse-block records remain until the operator removes them
-        following review. Provider security records and AI content follow their
-        own retention rules and are not erased by closing this page.
-      </p>
-      <h2>Providers and international processing</h2>
-      <p>
-        Providers are{" "}
-        <a href="https://ai.google.dev/gemini-api/terms">Google Gemini</a> for
-        analysis, <a href="https://vercel.com/legal/privacy-policy">Vercel</a>{" "}
-        for hosting, <a href="https://upstash.com/trust">Upstash</a> for usage
-        controls and{" "}
-        <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare</a> for
-        bot verification. Processing may occur outside Malaysia where these
-        providers operate. Threadmark does not sell submitted data or use it for
-        targeted advertising.
-      </p>
-      <h2>Choice, cookies and rights</h2>
-      <p>
-        Submission is optional. Without confirmations or bot verification, live
-        analysis is unavailable; the example remains accessible. Stop submitting
-        to withdraw consent for future analysis. Withdrawal cannot recall
-        content already processed.
-      </p>
-      <p>
-        No advertising or analytics trackers are added by the application.
-        Security providers may use essential cookies or browser storage in their
-        own flows, governed by their notices.
-      </p>
-      <p>
-        For records from the earlier sign-in version, contact the operator. For
-        access, correction, withdrawal, deletion or privacy complaints, contact
-        the operator above. Identity may need to be verified, and retention or
-        legal constraints will be explained. Do not send passwords, tokens or
-        private conversation content.
-      </p>
-      <h2>Children and changes</h2>
-      <p>
-        Live analysis is not intended for anyone under 18. Contact us about any
-        underage use. Material processing changes will be reflected here and,
-        where required, in renewed consent.
-      </p>
-      <section id="bahasa-melayu" lang="ms">
-        <h2>Notis Privasi Bahasa Melayu</h2>
-        <p>
-          Threadmark ialah demonstrasi analisis perbualan perniagaan. Pengendali
-          dan alamat hubungan disenaraikan di atas. Analisis langsung hanya
-          untuk pengguna berumur 18 tahun ke atas di wilayah yang disokong.
-        </p>
-        <h2>Maklumat dan tujuan</h2>
-        <p>
-          Log masuk tidak diperlukan. Threadmark tidak mengumpulkan profil
-          Google atau alamat e-mel untuk menghasilkan laporan.
-        </p>
-        <p>
-          Teks dihantar melalui pelayan kepada Google Gemini untuk menghasilkan
-          laporan. Gunakan contoh rekaan atau teks yang telah dinyahkenal pasti
-          sepenuhnya sahaja. Import fail membaca teks dalam pelayar; teks
-          dihantar hanya apabila analisis diminta. Upstash menyimpan kaunter
-          penggunaan, kunci sementara dan rekod sekatan yang dikaitkan dengan
-          HMAC alamat rangkaian menggunakan rahsia pelayan. Hash tidak menjamin
-          identiti tidak dapat dikenal pasti.
-        </p>
-        <p>
-          Vercel dan Cloudflare memproses maklumat teknikal seperti alamat IP,
-          pelayar dan masa permintaan. Negara berdasarkan IP digunakan untuk
-          sekatan wilayah. Cloudflare Turnstile memproses isyarat keselamatan
-          bagi mengesan penyalahgunaan automatik.
-        </p>
-        <h2>Pemprosesan AI</h2>
-        <p>
-          {settings.dataMode === "unpaid"
-            ? "Pelaksanaan ini menggunakan konfigurasi Gemini tanpa bayaran. Google boleh menggunakan teks dan jawapan untuk menyediakan, menambah baik dan membangunkan produk serta teknologi pembelajaran mesin. Penyemak manusia mungkin memproses kandungan tersebut. Jangan hantar maklumat peribadi, sensitif atau sulit."
-            : "Pelaksanaan ini dikonfigurasi untuk terma Gemini berbayar. Google tidak menggunakan teks dan jawapan untuk menambah baik produknya di bawah terma tersebut, tetapi boleh menyimpannya bagi tempoh terhad untuk pengesanan penyalahgunaan dan kewajipan undang-undang. Hanya kandungan rekaan atau yang telah dinyahkenal pasti sepenuhnya dibenarkan."}
-        </p>
-        <p>
-          Konfigurasi ini diisytiharkan oleh pengendali. Projek Google sebenar
-          dan terma Gemini menentukan pemprosesan penyedia. Menyahaktifkan
-          storan interaksi tidak mengatasi terma tersebut.
-        </p>
-        <h2>Penyimpanan dan penyedia</h2>
-        <p>
-          Aplikasi tidak menyimpan pangkalan data perbualan atau laporan.
-          Kandungan kekal dalam pelayar sehingga dipadamkan, dimuat semula atau
-          ditutup; laporan yang dimuat turun kekal pada peranti sehingga
-          dipadamkan. Kandungan melalui memori pelayan semasa analisis. Kod
-          aplikasi tidak sengaja merekodkan teks, token atau ralat penyedia.
-        </p>
-        <p>
-          Tiada akaun baharu dicipta. Rekod Firebase daripada versi lama perlu
-          dipadamkan oleh pengendali. Kaunter penggunaan luput dalam 48 jam
-          selepas kemas kini terakhir; kunci analisis dan kaunter kemasukan
-          luput dalam 120 saat. Rekod sekatan kekal sehingga pengendali
-          membuangnya selepas semakan. Log keselamatan penyedia dan kandungan AI
-          mempunyai tempoh penyimpanan sendiri.
-        </p>
-        <p>
-          Penyedia ialah Google Gemini, Vercel, Upstash dan Cloudflare untuk
-          tujuan yang dinyatakan di atas. Pautan notis penyedia disenaraikan di
-          atas. Data boleh diproses di luar Malaysia. Threadmark tidak menjual
-          data yang dihantar atau menggunakannya untuk pengiklanan bersasar.
-        </p>
-        <h2>Pilihan dan hak</h2>
-        <p>
-          Penghantaran adalah pilihan. Tanpa persetujuan atau semakan bot,
-          analisis langsung tidak tersedia; contoh masih boleh dilihat. Hentikan
-          penghantaran untuk menarik balik persetujuan masa hadapan. Ini tidak
-          dapat menarik balik kandungan yang telah diproses.
-        </p>
-        <p>
-          Aplikasi tidak menambah penjejak pengiklanan atau analitik. Penyedia
-          mungkin menggunakan kuki atau storan pelayar penting dalam aliran
-          keselamatan mereka. Hubungi pengendali untuk pemadaman rekod akaun
-          lama. Hubungi pengendali untuk akses, pembetulan, penarikan balik
-          persetujuan, pemadaman atau aduan. Identiti mungkin perlu disahkan dan
-          kekangan pengekalan atau undang-undang akan dijelaskan. Jangan hantar
-          kata laluan, token atau kandungan sulit.
-        </p>
-        <p>
-          Hubungi pengendali jika akaun bawah umur telah diwujudkan. Perubahan
-          penting akan dinyatakan di sini dan persetujuan baharu diminta apabila
-          diperlukan.
-        </p>
-      </section>
-    </LegalPage>
+    </article>
   );
 }
